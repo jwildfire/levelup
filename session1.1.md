@@ -110,37 +110,37 @@ When level N completes, instead of showing the rule picker, the game shows "NEXT
 
 ---
 
-## Browser Testing (Screenshots)
+## Browser Testing — Part B (Open World Engine)
 
 All tests run with Playwright + Chromium. Zero JS errors across all tests.
 
-### Screenshot 1 — Menu
-![Menu](screenshots/1-menu.png)
-GM selection screen. All 6 personalities listed. Unchanged from session 1.
+### Menu
+![Menu](screenshots/s11b-01-menu.png)
+GM selection screen, 6 personalities. Click to reveal "Begin" button.
 
-### Screenshot 2 — Open World Level 1
-![Open World](screenshots/2-openworld.png)
-Green player dot (left), gold spinning goal dot (right). Dot-grid background. HUD shows LVL 1, OPEN badge, GM: 29s countdown, Moves: 0.
+### Open World Level 1
+![Open World](screenshots/s11b-02-openworld.png)
+Green player dot (left), gold spinning goal dot (right). Subtle dot-grid background. HUD shows LVL 1 OPEN badge, GM 29s countdown, Moves: 0.
 
-### Screenshot 3 — Free Movement with Trail
-![Moving](screenshots/3-moving.png)
-Player has moved right — motion trail (fading green dots) visible behind it. Moves: 40. Smooth, responsive.
+### Free Movement with Trail
+![Moving](screenshots/s11b-03-moving.png)
+Player mid-move — motion trail (fading green dots) visible behind it. Smooth, responsive pixel movement.
 
-### Screenshot 4 — Level Complete
-![Level Complete](screenshots/4-complete.png)
-"LEVEL 1 COMPLETE! Moves: 13" — correct count with the 200ms throttle. Game world visible behind overlay.
+### Level Complete
+![Level Complete](screenshots/s11b-04-levelcomplete.png)
+"LEVEL 1 COMPLETE! Moves: 13" — throttled move counter working correctly. Game world visible behind overlay.
 
-### Screenshot 5 — Rule Picker
-![Rule Picker](screenshots/5-rulepicker.png)
-3 mystery rules with world-agnostic hints ("Something valuable is waiting", not "the maze is full of"). Wish input box at top.
+### `_nextLevel` — GM Chat During Play
+![GM chat queued](screenshots/s11b-05-nextlevel-queued.png)
+GM sent "⚡ BONUS ROUND LOADED!" to sidebar while player is still on level 1. `_nextLevel` already set with custom geometry.
 
-### Screenshot 6 — `_nextLevel` in Action
-**GM sends sidebar message during level 1:** "⚡ BONUS ROUND LOADED! I've already planned your NEXT CHALLENGE!"
+### `_nextLevel` — "Next Level Ready" Screen
+![Next Level Ready](screenshots/s11b-06-nextlevel-ready.png)
+Level completes → rule picker bypassed entirely. "The Game Master has prepared something... Press ENTER to begin."
 
-**After completing level 1 — "NEXT LEVEL READY"** instead of rule picker:
-"The Game Master has prepared something... Press ENTER to begin"
-
-**Level 2 loads with GM-specified layout:** Player at top-center, gold goal at bottom-center. Completely different geometry from level 1. No rule picker needed.
+### `_nextLevel` — GM-Built Custom Level
+![GM custom level](screenshots/s11b-07-gm-custom-level.png)
+Level 2 loaded with player at top-center, goal at bottom-center — exactly the GM-specified geometry. LVL 2 OPEN, fresh timer.
 
 ---
 
@@ -257,15 +257,25 @@ window._clearEvents();         // clear default injection schedule
 window._addBetweenMsg(text, sender);  // add to between-levels chat panel
 ```
 
-### Browser Testing Screenshots
+### Browser Testing — Part C (New Flow)
 
-**Intro Chat** — GM speaks immediately. Personality tone clear ("Ah. A visitor. I sense a wish forming. Speak carefully."). Optional player input. Start Level 1 button prominent.
+### Intro Chat
+![Intro chat](screenshots/s11c-01-introchat.png)
+GM speaks first with personality-appropriate tone ("Ah. A visitor. I sense a wish forming. Speak carefully."). Optional text input. "START LEVEL 1 →" always visible. Controls hint at bottom.
 
-**Playing — Timer** — 1:59 countdown green and bold at top of play area. Progress bar at HUD boundary. HUD shows LVL 1, dots: 0, moves.
+### Playing — Timer Active
+![Playing with timer](screenshots/s11c-02-playing-timer.png)
+1:59 countdown in bold green at top of play area. Green progress bar at HUD boundary. HUD shows LVL 1 OPEN, 0 moves. "ESC · L → chat" hint.
 
-**Playing — Dot Reached (1:56, ⬤ 1)** — After reaching the first dot, it respawned at a completely new position (bottom-center). HUD shows ⬤ 1. Player trail visible from motion.
+### Playing — Dot Reached and Respawned
+![Dot respawned](screenshots/s11c-03-dot-respawn.png)
+Player reached the first dot — HUD shows ⬤ 1. Goal has respawned at a completely new position (lower-center). Motion trail visible. Level still running. 1:56 remaining.
 
-**Playing — LVL 1.2** — After manually setting subLevel=2, dotsReached=4 via console: HUD shows "LVL 1.2" and "⬤ 4" in gold. Timer still running.
+### Playing — LVL 1.2 Sub-level HUD
+![Sub-level HUD](screenshots/s11c-04-sublevel-hud.png)
+After two mid-level rule injections: HUD shows "LVL 1.2" and "⬤ 4" in gold. Timer and play continue uninterrupted — no screen break.
 
-**Between Levels (L key)** — "LEVEL 1.2 COMPLETE · ⬤ 4 dots · ↔ 14 moves". Chat panel with GM header, wish input, "Level 2 → (OR PRESS L)" button. Game world visible and frozen behind.
+### Between Levels
+![Between levels](screenshots/s11c-05-between-levels.png)
+Pressing L during play: "LEVEL 1.2 COMPLETE · ⬤ 4 dots · ↔ 14 moves". Chat panel with GM header, wish input box, "LEVEL 2 → (OR PRESS L)" button. Frozen game world behind overlay.
 
