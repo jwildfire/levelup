@@ -1,6 +1,6 @@
 import * as rules from '../rules/registry.js';
 
-const GM_INTERVAL = 60; // seconds between GM check-ins
+const GM_INTERVAL = 30; // seconds between GM check-ins
 
 export function render(ctx, gameState) {
   const cs = gameState.cellSize;

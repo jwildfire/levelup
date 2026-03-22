@@ -20,6 +20,12 @@ import shiftingWalls from './rules/pool/shifting-walls.js';
 import invertedControls from './rules/pool/inverted-controls.js';
 import timeLimit from './rules/pool/time-limit.js';
 import fogOfWar from './rules/pool/fog-of-war.js';
+import gravity from './rules/pool/gravity.js';
+import iceFloor from './rules/pool/ice-floor.js';
+import keyAndLock from './rules/pool/key-and-lock.js';
+import shadowTrail from './rules/pool/shadow-trail.js';
+import randomWarp from './rules/pool/random-warp.js';
+import mimic from './rules/pool/mimic.js';
 
 // Register everything
 goalRegistry.register(reachExit);
@@ -29,6 +35,12 @@ ruleRegistry.register(shiftingWalls);
 ruleRegistry.register(invertedControls);
 ruleRegistry.register(timeLimit);
 ruleRegistry.register(fogOfWar);
+ruleRegistry.register(gravity);
+ruleRegistry.register(iceFloor);
+ruleRegistry.register(keyAndLock);
+ruleRegistry.register(shadowTrail);
+ruleRegistry.register(randomWarp);
+ruleRegistry.register(mimic);
 
 // Game state
 const gs = state.createGameState();
@@ -36,7 +48,8 @@ window._gs = gs; // debug access
 let lastTime = 0;
 
 function getMazeSize(level) {
-  const size = Math.min(7 + level * 2, 21);
+  // Start small (5x5) and scale slowly — the fun is rule stacking, not maze size
+  const size = Math.min(5 + Math.floor(level * 1.5), 19);
   return { cols: size, rows: size };
 }
 
@@ -152,7 +165,7 @@ function showChoices() {
 }
 
 async function handlePlayerPrompt(prompt) {
-  screens.showGenerating(prompt);
+  screens.showGenerating(prompt, gs.gameMaster);
   gs.phase = 'generating';
 
   // Expose the wish so Claude Code can see it and generate a rule
@@ -175,7 +188,7 @@ async function handlePlayerPrompt(prompt) {
       window._injectedRule = null;
       window._pendingWish = null;
       try {
-        ruleRegistry.register(rule);
+        ruleRegistry.registerInjected(rule);
         ruleRegistry.activate(rule.id, gs);
       } catch (e) {
         console.warn('Failed to activate injected rule:', e);
@@ -304,11 +317,10 @@ function gameLoop(timestamp) {
       ruleRegistry.onCollisionAll(entityA, entityB, gs);
     }
 
-    // Check goals
-    // Special case: if collect-coins is active, block exit until all coins collected
-    const coinsRule = gs.activeRuleIds.includes('collect-coins');
-    const coinsRemaining = gs.ruleData.coinsRemaining ?? 0;
-    const goalsBlocked = coinsRule && coinsRemaining > 0;
+    // Check goals — some rules block the exit until conditions are met
+    const coinsBlocked = gs.activeRuleIds.includes('collect-coins') && (gs.ruleData.coinsRemaining ?? 0) > 0;
+    const keyBlocked = gs.activeRuleIds.includes('key-and-lock') && !gs.ruleData.keyCollected;
+    const goalsBlocked = coinsBlocked || keyBlocked;
 
     if (!goalsBlocked && goalRegistry.checkAll(gs)) {
       onLevelComplete();
@@ -324,6 +336,7 @@ function gameLoop(timestamp) {
     hud.render(canvas.ctx, gs);
   }
 
+  maybeGmTick(timestamp);
   input.clearFrame();
   requestAnimationFrame(gameLoop);
 }
@@ -343,6 +356,33 @@ function escapeToPrompt() {
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') escapeToPrompt();
 });
+
+// In-game GM tick timer — fires every 30s during play
+// Claude Code can set window._onGmTick to receive these pings
+const GM_TICK_INTERVAL = 30000;
+let lastGmTick = 0;
+
+function maybeGmTick(now) {
+  if (gs.phase !== 'playing') return;
+  if (now - lastGmTick >= GM_TICK_INTERVAL) {
+    lastGmTick = now;
+    if (typeof window._onGmTick === 'function') {
+      try {
+        window._onGmTick({
+          level: gs.level,
+          phase: gs.phase,
+          activeRuleIds: [...gs.activeRuleIds],
+          gameMaster: gs.gameMaster,
+          playerMoves: gs.player ? gs.player.moveCount : 0,
+          playerMessages: [...window._playerMessages],
+          timestamp: now,
+        });
+      } catch (e) {
+        console.warn('_onGmTick error:', e);
+      }
+    }
+  }
+}
 
 // Boot
 function init() {

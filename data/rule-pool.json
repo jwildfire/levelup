@@ -46,5 +46,53 @@
     "category": "visual",
     "difficulty": 3,
     "file": "js/rules/pool/fog-of-war.js"
+  },
+  {
+    "id": "gravity",
+    "name": "Gravitational Pull",
+    "description": "The floor has opinions. Every 2 seconds, you slide one cell south.",
+    "category": "modifier",
+    "difficulty": 2,
+    "file": "js/rules/pool/gravity.js"
+  },
+  {
+    "id": "ice-floor",
+    "name": "Slippery When Wet",
+    "description": "The floor is ice. Every move slides you one extra cell in the same direction.",
+    "category": "movement",
+    "difficulty": 2,
+    "file": "js/rules/pool/ice-floor.js"
+  },
+  {
+    "id": "key-and-lock",
+    "name": "Key Holder",
+    "description": "A golden key is hidden somewhere. The exit is locked until you find it.",
+    "category": "collectible",
+    "difficulty": 2,
+    "file": "js/rules/pool/key-and-lock.js"
+  },
+  {
+    "id": "shadow-trail",
+    "name": "Don't Look Back",
+    "description": "Your past haunts you. A shadow of your recent path slowly creeps toward you.",
+    "category": "hazard",
+    "difficulty": 3,
+    "file": "js/rules/pool/shadow-trail.js"
+  },
+  {
+    "id": "random-warp",
+    "name": "Quantum Uncertainty",
+    "description": "Every 15 seconds the universe forgets where you were and puts you somewhere else.",
+    "category": "modifier",
+    "difficulty": 3,
+    "file": "js/rules/pool/random-warp.js"
+  },
+  {
+    "id": "mimic",
+    "name": "The Mimic",
+    "description": "An entity copies your every move, 3 steps behind. If it reaches you, back to start.",
+    "category": "hazard",
+    "difficulty": 3,
+    "file": "js/rules/pool/mimic.js"
   }
 ]

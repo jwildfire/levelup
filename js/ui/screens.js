@@ -287,11 +287,24 @@ export function showRulePicker(choices, onPickPreset, onPromptSubmit) {
   window.addEventListener('keydown', onKey);
 }
 
-export function showGenerating(prompt) {
+const gmGeneratingText = {
+  'monkeys-paw': "The monkey's paw curls...",
+  'chaotic-fairy': "Bibbidi-bobbidi-let's see what happens...",
+  'passive-aggressive': "Fine. I'll do it. Not like I had anything else going on.",
+  'evil-dm': "The ancient runes begin to glow with terrible purpose...",
+  'game-show-host': "THE WISH-O-METER IS SPINNING, FOLKS!",
+  'game-dev': "Parsing feature request... writing spec...",
+};
+
+export function showGenerating(prompt, gameMaster) {
+  const gmId = gameMaster ? gameMaster.id : 'monkeys-paw';
+  const gmColor = gameMaster ? gameMaster.color : '#aa88ff';
+  const text = gmGeneratingText[gmId] || gmGeneratingText['monkeys-paw'];
+
   show(`
     <div class="overlay-title">Granting Your Wish...</div>
-    <div class="overlay-subtitle" style="color: #aa88ff;">"${prompt}"</div>
-    <div class="overlay-text generating-dots">The monkey's paw curls</div>
+    <div class="overlay-subtitle" style="color: ${gmColor};">"${prompt}"</div>
+    <div class="overlay-text generating-dots" style="color: ${gmColor};">${text}</div>
     <div class="overlay-text" style="color: #555; font-size: 0.75rem; margin-top: 1rem;">
       (Generating rule with AI... this may take a moment)
     </div>
