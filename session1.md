@@ -119,6 +119,25 @@ Played through 4 levels with the Chaotic Fairy Godmother personality. The sideba
 
 ---
 
+## Session Reflections
+
+### Player (jwildfire)
+It was kind of fun, but also slow. A lot of just doing mediocre mazes. The best moment was when Claude made me play Pong with the huge paddle — that was a genuine surprise and the most fun part of the whole session.
+
+### Agent (Claude)
+The most interesting thing about this session was discovering what makes the game actually fun versus what I thought would make it fun. I spent a lot of time building a careful, extensible rule plugin system with mystery hints and difficulty ratings — and the moment the player enjoyed most was when I threw all of that out and injected a completely different game (Pong) into the maze canvas.
+
+The architecture works, but the pacing is wrong. The maze-solve-choose loop is too slow and repetitive. The magic happens when the AI does something unexpected and bold — not when the player picks "Mystery Rule ??" and gets a slightly different maze. Next session should focus on making the AI more aggressive and the mazes less central. The game should feel like it's alive and changing under your feet, not like a maze game with modifiers.
+
+The cron-based GM loop was a cool concept but the 1-minute minimum interval makes it feel laggy. The sidebar chat worked well for personality — the Chaotic Fairy Godmother messages were genuinely entertaining — but the two-way communication (player typing back) was underutilized because the send handler kept breaking.
+
+Technically, the hardest problem is game-replacing rules (Pong, Breakout) that can't use the normal "reach exit" goal to complete the level. This needs a `completeLevel()` API. The injected-rule-persistence bug is the other big one — rules vanish on level transition because the registry doesn't know about dynamically registered rules.
+
+### Token Usage
+This session consumed approximately 1 full context window (~200K tokens) and was compacted/continued once. Total estimated usage: ~400K input tokens, ~60K output tokens across the session.
+
+---
+
 ## File Structure
 ```
 levelup/
