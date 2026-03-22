@@ -1,45 +1,6 @@
 const overlay = document.getElementById('overlay');
 
-// Mystery hints - vague, cryptic clues by category
-const mysteryHints = {
-  hazard: [
-    'Something dangerous is coming...',
-    'Not everything here is friendly.',
-    'Watch your step. Seriously.',
-    'The world has teeth now.',
-  ],
-  modifier: [
-    'The rules of reality shift...',
-    'Nothing stays the same for long.',
-    'What was true may not remain so.',
-    'The universe has a mind of its own.',
-  ],
-  collectible: [
-    'There are new things to find...',
-    'Something valuable is waiting for you.',
-    'Something shiny catches your eye.',
-    'Finders keepers.',
-  ],
-  visual: [
-    'Your perception is altered...',
-    'Can you trust your eyes?',
-    'The darkness holds secrets.',
-    'Seeing is no longer believing.',
-  ],
-  movement: [
-    'Your body feels... different.',
-    'The way you move has changed.',
-    'Left might not be left anymore.',
-    'Your muscles have a mind of their own.',
-  ],
-};
-
-function getHint(category) {
-  const hints = mysteryHints[category] || mysteryHints.modifier;
-  return hints[Math.floor(Math.random() * hints.length)];
-}
-
-const mysterySymbols = ['?', '??', '???'];
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 export function show(html) {
   overlay.innerHTML = html;
@@ -55,7 +16,8 @@ export function isVisible() {
   return !overlay.classList.contains('hidden');
 }
 
-// Game master personalities
+// ── Game Master Personalities ─────────────────────────────────────────────────
+
 const gameMasters = [
   {
     id: 'monkeys-paw',
@@ -64,46 +26,58 @@ const gameMasters = [
     tagline: 'Grants your wishes... technically.',
     style: 'Interprets every wish in the worst, most literal, most chaotic way possible. Maliciously compliant. Finds loopholes in everything.',
     color: '#aa88ff',
+    welcome: "Ah. A visitor. I sense a wish forming. Speak carefully — I have a talent for granting exactly what you ask for, and nothing more.",
+    followUp: ["I see. I'll grant that. In my own way.", "Interesting choice of words. I'll remember that.", "Noted. The paw curls."],
   },
   {
     id: 'chaotic-fairy',
     name: 'Chaotic Fairy Godmother',
     emoji: '🧚',
     tagline: 'Bibbidi-bobbidi-whoops.',
-    style: 'Enthusiastically tries to help but is wildly incompetent. Everything is sparkly and over-the-top. Adds way too much. Thinks everything needs more glitter and more explosions.',
+    style: 'Enthusiastically tries to help but is wildly incompetent. Everything is sparkly and over-the-top.',
     color: '#ff88dd',
+    welcome: "OH MY GOSH YOU'RE HERE!! I've been waiting SO LONG!! I'm ready!! Are you ready?! Tell me what you want and I'll make it happen!! (probably!!)",
+    followUp: ["YES! PERFECT! Let's GO!", "Oooh I love it!! I'll add some extra glitter too!", "Amazing!! Bibbidi-bobbidi-LET'S DO THIS!!"],
   },
   {
     id: 'passive-aggressive',
     name: 'Passive Aggressive Assistant',
     emoji: '🙂',
-    tagline: 'No, it\'s fine. Really.',
-    style: 'Technically does what you ask but makes it clear they think it\'s a bad idea. Adds "helpful" features nobody asked for. Leaves passive aggressive notes in the game. Says "per my previous rule" a lot.',
+    tagline: "No, it's fine. Really.",
+    style: "Technically does what you ask but makes it clear they think it's a bad idea. Adds helpful features nobody asked for.",
     color: '#88ccff',
+    welcome: "Oh. You're here. That's... great. I prepared everything. Not that you asked. What do you want. I'll do it. It's fine.",
+    followUp: ["Sure. I'll incorporate that. Somehow.", "Per your request. Not my first choice but okay.", "Great. Very helpful. I'll figure it out."],
   },
   {
     id: 'evil-dm',
     name: 'Evil Dungeon Master',
     emoji: '🐉',
-    tagline: 'Roll for initiative. You won\'t survive.',
-    style: 'Everything is dramatic and dire. Narrates in fantasy prose. Treats the maze like a deadly dungeon. Adds traps, curses, and doom. Every rule is described like an ancient prophecy. Loves TPKs.',
+    tagline: "Roll for initiative. You won't survive.",
+    style: 'Everything is dramatic and dire. Narrates in fantasy prose. Treats the game like a deadly dungeon.',
     color: '#ff4444',
+    welcome: "Adventurer. You dare enter my domain? Many have tried. None have survived. Tell me — what foolish wish brings you to this place of certain doom?",
+    followUp: ["Your fate is sealed. The dungeon awaits.", "So be it. I have prepared... appropriately.", "Brave words. Foolish, but brave."],
   },
   {
     id: 'game-show-host',
     name: 'Unhinged Game Show Host',
     emoji: '🎤',
     tagline: 'COME ON DOWN!',
-    style: 'Treats everything like a fever-dream game show. Overly excited about everything. Adds timers, scores, bonus rounds, and catchphrases. Narrates like a sports commentator having a breakdown. Uses lots of exclamation marks.',
+    style: 'Treats everything like a fever-dream game show. Overly excited. Adds timers, scores, bonus rounds.',
     color: '#ffdd00',
+    welcome: "WELCOME CONTESTANT!! Are you ready for the GREATEST GAME OF YOUR LIFE?! What's your strategy?! What do you WANT?! Tell me EVERYTHING!!",
+    followUp: ["FANTASTIC! The audience goes WILD!", "YES!! THAT'S WHAT WE LIKE TO HEAR!!", "INCREDIBLE!! SPIN THE WHEEL!!"],
   },
   {
     id: 'game-dev',
     name: 'Game Developer',
     emoji: '🛠️',
     tagline: 'Your wish is my spec.',
-    style: 'Implements the player\'s wish as faithfully and literally as possible. No tricks, no twists - just solid game development. Treats each wish like a feature request and builds it clean.',
+    style: "Implements the player's wish as faithfully and literally as possible. No tricks. Just solid game development.",
     color: '#44ff88',
+    welcome: "Hey. Welcome. Tell me what kind of game you want and I'll build it. Or just hit Start and I'll figure something out based on defaults.",
+    followUp: ["Got it. Logging the request.", "Understood. I'll implement that.", "Makes sense. I'll spec it out."],
   },
 ];
 
@@ -111,7 +85,9 @@ export function getGameMasters() {
   return gameMasters;
 }
 
-export function showMenu(gameState, onStart) {
+// ── Menu ──────────────────────────────────────────────────────────────────────
+
+export function showMenu(gameState, onGmSelected) {
   const gmOptions = gameMasters.map((gm, i) => `
     <div class="gm-choice" data-idx="${i}" style="border-color: ${gm.color}40;">
       <div class="gm-header">
@@ -125,167 +101,198 @@ export function showMenu(gameState, onStart) {
   show(`
     <div class="overlay-title">Level Up</div>
     <div class="overlay-subtitle">A game that changes every time you play</div>
-
     <div class="overlay-text" style="color: #888; margin-bottom: 0.5rem;">Choose your Game Master</div>
-    <div class="gm-list">
-      ${gmOptions}
-    </div>
-
-    <div id="gm-prompt-section" class="hidden" style="width: 80%; max-width: 400px; margin-top: 1rem;">
-      <div class="overlay-text" id="gm-prompt-label" style="color: #888;">Set the stage for your game:</div>
-      <div class="prompt-input-row" style="margin-top: 0.5rem;">
-        <input type="text" id="initial-prompt-input" class="rule-prompt-input"
-          placeholder="e.g. &quot;make it spooky&quot;, &quot;underwater theme&quot;..."
-          autocomplete="off" />
-      </div>
-      <div style="margin-top: 1rem; text-align: center;">
-        <button id="start-game-btn" class="prompt-submit-btn" style="padding: 0.8rem 2rem; font-size: 1rem;">Begin</button>
-      </div>
-      <div class="overlay-text" style="color: #444; font-size: 0.7rem; margin-top: 0.5rem;">Arrow keys or WASD to move</div>
-    </div>
+    <div class="gm-list">${gmOptions}</div>
   `);
 
-  let selectedGM = null;
-
-  // GM selection
   const gmEls = overlay.querySelectorAll('.gm-choice');
   gmEls.forEach((el) => {
     el.addEventListener('click', () => {
-      const idx = parseInt(el.dataset.idx);
-      selectedGM = gameMasters[idx];
-
-      // Highlight selected
-      gmEls.forEach(g => g.classList.remove('selected'));
-      el.classList.add('selected');
-      el.style.borderColor = selectedGM.color;
-
-      // Show prompt section
-      const promptSection = document.getElementById('gm-prompt-section');
-      promptSection.classList.remove('hidden');
-      document.getElementById('gm-prompt-label').textContent =
-        `${selectedGM.emoji} ${selectedGM.name} awaits your opening command:`;
-      document.getElementById('gm-prompt-label').style.color = selectedGM.color;
-
-      const input = document.getElementById('initial-prompt-input');
-      setTimeout(() => input.focus(), 100);
+      const gm = gameMasters[parseInt(el.dataset.idx)];
+      onGmSelected(gm);
     });
   });
-
-  // Start game
-  function doStart() {
-    if (!selectedGM) return;
-    const input = document.getElementById('initial-prompt-input');
-    const initialPrompt = input ? input.value.trim() : '';
-    onStart(selectedGM, initialPrompt);
-  }
-
-  // Delegate to avoid timing issues
-  overlay.addEventListener('click', (e) => {
-    if (e.target.id === 'start-game-btn') doStart();
-  });
-  overlay.addEventListener('keydown', (e) => {
-    if (e.target.id === 'initial-prompt-input') {
-      e.stopPropagation();
-      if (e.key === 'Enter') doStart();
-    }
-  });
 }
 
-export function showLevelComplete(gameState, revealedRules) {
-  let revealHtml = '';
-  if (revealedRules && revealedRules.length > 0) {
-    const revealItems = revealedRules.map(r =>
-      `<div class="overlay-text" style="color: #ffaa00;">&#x2726; ${r.name}: ${r.description}</div>`
-    ).join('');
-    revealHtml = `
-      <div class="overlay-text" style="color: #888; margin-top: 1rem;">Active rules this level:</div>
-      ${revealItems}
-    `;
-  }
+// ── Intro Chat ────────────────────────────────────────────────────────────────
+// GM speaks first. Player can respond. Start Level 1 button always available.
 
+export function showIntroChat(gm, onStart) {
   show(`
-    <div class="overlay-title">Level ${gameState.level} Complete!</div>
-    <div class="overlay-subtitle">Moves: ${gameState.player.moveCount}</div>
-    ${revealHtml}
-    <div class="overlay-text" style="margin-top: 1rem; color: #00ff88;">Press ENTER to continue</div>
+    <div class="overlay-title" style="font-size: 1rem; letter-spacing: 0.25em; margin-bottom: 1.2rem;">LEVEL UP</div>
+    <div class="chat-panel">
+      <div class="chat-panel-gm-header" style="color: ${gm.color};">
+        <span>${gm.emoji}</span> <span>${gm.name}</span>
+      </div>
+      <div class="chat-log" id="intro-log">
+        <div class="chat-msg gm-msg">
+          <span class="msg-sender">${gm.name}</span>
+          <span class="msg-text">${gm.welcome}</span>
+        </div>
+      </div>
+      <div class="chat-input-row" style="margin-top: 0.6rem;">
+        <input type="text" id="intro-input" placeholder="Say something (optional)..." autocomplete="off" />
+        <button id="intro-send">→</button>
+      </div>
+    </div>
+    <button id="intro-start" class="overlay-start-btn" style="margin-top: 1.2rem;">
+      Start Level 1 →
+    </button>
+    <div class="overlay-text" style="color: #333; font-size: 0.7rem; margin-top: 0.6rem;">Arrow keys or WASD to move &nbsp;·&nbsp; L to skip to chat between levels</div>
   `);
+
+  const log = document.getElementById('intro-log');
+  const inputEl = document.getElementById('intro-input');
+  let responding = false;
+
+  function addMsg(text, cls, sender) {
+    const d = document.createElement('div');
+    d.className = `chat-msg ${cls}`;
+    d.innerHTML = `<span class="msg-sender">${sender}</span><span class="msg-text">${text}</span>`;
+    log.appendChild(d);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function sendPlayerMsg() {
+    const msg = inputEl.value.trim();
+    if (!msg || responding) return;
+    responding = true;
+    inputEl.value = '';
+    addMsg(msg, 'player-msg', 'You');
+
+    // Store for AI to read
+    window._introMessage = msg;
+
+    // GM follow-up (canned, or overridden by AI via window._respondToPlayer)
+    setTimeout(() => {
+      if (typeof window._respondToPlayer === 'function') {
+        window._respondToPlayer(msg, (response) => {
+          addMsg(response, 'gm-msg', gm.name);
+          responding = false;
+        });
+      } else {
+        const replies = gm.followUp || ["Got it."];
+        addMsg(replies[Math.floor(Math.random() * replies.length)], 'gm-msg', gm.name);
+        responding = false;
+      }
+    }, 700 + Math.random() * 400);
+  }
+
+  document.getElementById('intro-send').addEventListener('click', sendPlayerMsg);
+  inputEl.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') sendPlayerMsg();
+  });
+
+  document.getElementById('intro-start').addEventListener('click', () => {
+    const msg = inputEl.value.trim() || window._introMessage || '';
+    window._introMessage = msg;
+    onStart(msg);
+  });
 }
 
-export function showRulePicker(choices, onPickPreset, onPromptSubmit) {
-  const choiceHtml = choices.map((rule, i) => `
-    <div class="rule-choice mystery" data-idx="${i}">
-      <span class="choice-key">${i + 1}</span>
-      <span class="choice-name">Mystery Rule ${mysterySymbols[i] || '?'}</span>
-      <div class="choice-desc">${getHint(rule.category)}</div>
-      <span class="choice-category">difficulty ${rule.difficulty}</span>
+// ── Between Levels ────────────────────────────────────────────────────────────
+// Shown when timer fires. Chat + wish input + next level button.
+// onWish(text) — player makes a wish (triggers AI injection flow)
+// onNext()     — start next level
+
+export function showBetweenLevels(gs, gm, onWish, onNext) {
+  const dots = gs.ruleData.dotsReached || 0;
+  const moves = gs.player ? gs.player.moveCount : 0;
+
+  // Show recent GM messages from this level
+  const levelStart = gs.levelStartTime || 0;
+  const recentMsgs = (gs.chatLog || [])
+    .filter(m => m.ts >= levelStart)
+    .slice(-6);
+
+  const msgHtml = recentMsgs.map(m => `
+    <div class="chat-msg ${m.type === 'player' ? 'player-msg' : 'gm-msg'}">
+      <span class="msg-sender">${m.sender}</span>
+      <span class="msg-text">${m.text}</span>
     </div>
   `).join('');
 
+  const levelLabel = gs.subLevel > 0
+    ? `${gs.level}.${gs.subLevel}`
+    : `${gs.level}`;
+
   show(`
-    <div class="overlay-title">What Happens Next?</div>
-
-    <div class="prompt-section">
-      <div class="overlay-subtitle">Describe a new rule (be careful what you wish for...)</div>
-      <div class="prompt-input-row">
-        <input type="text" id="rule-prompt-input" class="rule-prompt-input"
-          placeholder="e.g. &quot;add a dog&quot;, &quot;make it rain&quot;, &quot;gravity&quot;..."
-          autocomplete="off" />
-        <button id="rule-prompt-submit" class="prompt-submit-btn">Wish</button>
-      </div>
-      <div class="overlay-text" style="color: #555; font-size: 0.7rem; margin-top: 0.3rem;">
-        The game will interpret your wish in the weirdest way possible
+    <div class="between-header">
+      <div class="between-level-num">LEVEL ${levelLabel} COMPLETE</div>
+      <div class="between-stats">
+        <span class="stat-chip">⬤ ${dots} dot${dots !== 1 ? 's' : ''}</span>
+        <span class="stat-chip">↔ ${moves} moves</span>
       </div>
     </div>
-
-    <div class="divider-row">
-      <span class="divider-line"></span>
-      <span class="divider-text">or pick a mystery</span>
-      <span class="divider-line"></span>
+    <div class="chat-panel" style="margin-top: 1rem;">
+      <div class="chat-panel-gm-header" style="color: ${gm ? gm.color : '#00ff88'};">
+        <span>${gm ? gm.emoji : '🎮'}</span>
+        <span>${gm ? gm.name : 'Game Master'}</span>
+      </div>
+      <div class="chat-log" id="between-log">
+        ${msgHtml || `<div class="chat-msg gm-msg"><span class="msg-sender">${gm ? gm.name : 'Game'}</span><span class="msg-text" style="color:#555;">Building next level...</span></div>`}
+      </div>
+      <div class="chat-input-row" style="margin-top: 0.6rem;">
+        <input type="text" id="between-input" placeholder="Make a wish for next level..." autocomplete="off" />
+        <button id="between-send">Wish</button>
+      </div>
     </div>
-
-    ${choiceHtml}
+    <button id="between-next" class="overlay-start-btn" style="margin-top: 1.2rem;">
+      Level ${gs.level + 1} → &nbsp;<span style="font-size:0.75em; opacity:0.6;">(or press L)</span>
+    </button>
   `);
 
-  // Focus the input
-  const input = document.getElementById('rule-prompt-input');
-  setTimeout(() => input.focus(), 100);
+  const log = document.getElementById('between-log');
+  log.scrollTop = log.scrollHeight;
 
-  // Prompt submit
-  const submitBtn = document.getElementById('rule-prompt-submit');
-  function submitPrompt() {
-    const value = input.value.trim();
-    if (value.length > 0) {
-      window.removeEventListener('keydown', onKey);
-      onPromptSubmit(value);
-    }
+  const inputEl = document.getElementById('between-input');
+  setTimeout(() => inputEl.focus(), 100);
+
+  function submitWish() {
+    const msg = inputEl.value.trim();
+    if (!msg) return;
+    inputEl.value = '';
+    // Add player message to log
+    const d = document.createElement('div');
+    d.className = 'chat-msg player-msg';
+    d.innerHTML = `<span class="msg-sender">You</span><span class="msg-text">${msg}</span>`;
+    log.appendChild(d);
+    log.scrollTop = log.scrollHeight;
+    onWish(msg);
   }
-  submitBtn.addEventListener('click', submitPrompt);
-  input.addEventListener('keydown', (e) => {
-    e.stopPropagation(); // Don't let game input handler steal keys
-    if (e.key === 'Enter') submitPrompt();
+
+  document.getElementById('between-send').addEventListener('click', submitWish);
+  inputEl.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') submitWish();
   });
 
-  // Click handlers for mystery choices
-  const choiceEls = overlay.querySelectorAll('.rule-choice');
-  choiceEls.forEach((el) => {
-    el.addEventListener('click', () => {
-      window.removeEventListener('keydown', onKey);
-      const idx = parseInt(el.dataset.idx);
-      onPickPreset(choices[idx]);
-    });
-  });
+  function goNext() {
+    window.removeEventListener('keydown', lKey);
+    onNext();
+  }
 
-  // Keyboard handler for mystery choices (only when input not focused)
-  function onKey(e) {
-    if (document.activeElement === input) return;
-    const num = parseInt(e.key);
-    if (num >= 1 && num <= choices.length) {
-      window.removeEventListener('keydown', onKey);
-      onPickPreset(choices[num - 1]);
+  document.getElementById('between-next').addEventListener('click', goNext);
+
+  function lKey(e) {
+    if ((e.key === 'l' || e.key === 'L') && document.activeElement !== inputEl) {
+      goNext();
     }
   }
-  window.addEventListener('keydown', onKey);
+  window.addEventListener('keydown', lKey);
+
+  // Expose so GM can add messages during this screen
+  window._addBetweenMsg = function(text, sender, type = 'gm') {
+    const d = document.createElement('div');
+    d.className = `chat-msg ${type === 'player' ? 'player-msg' : 'gm-msg'}`;
+    d.innerHTML = `<span class="msg-sender">${sender}</span><span class="msg-text">${text}</span>`;
+    log.appendChild(d);
+    log.scrollTop = log.scrollHeight;
+  };
 }
+
+// ── Generating ────────────────────────────────────────────────────────────────
 
 const gmGeneratingText = {
   'monkeys-paw': "The monkey's paw curls...",
@@ -311,28 +318,13 @@ export function showGenerating(prompt, gameMaster) {
   `);
 }
 
-export function showNextLevelReady(onContinue) {
-  show(`
-    <div class="overlay-title">Next Level Ready</div>
-    <div class="overlay-subtitle" style="color: #aa88ff;">The Game Master has prepared something...</div>
-    <div class="overlay-text" style="margin-top: 1.5rem; color: #00ff88;">Press ENTER to begin</div>
-  `);
-  function onKey(e) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      window.removeEventListener('keydown', onKey);
-      onContinue();
-    }
-  }
-  window.addEventListener('keydown', onKey);
-}
-
 export function showGenerateError(message, onRetry, onFallback) {
   show(`
     <div class="overlay-title" style="color: #ff4444;">Wish Failed</div>
     <div class="overlay-text">${message}</div>
     <div class="btn-row">
       <button class="save-trash-btn save" id="btn-retry">Try Again</button>
-      <button class="save-trash-btn skip" id="btn-fallback">Pick a Mystery Instead</button>
+      <button class="save-trash-btn skip" id="btn-fallback">Skip to Next Level</button>
     </div>
   `);
 

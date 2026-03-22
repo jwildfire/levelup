@@ -10,11 +10,12 @@ import * as goalRegistry from './goals/registry.js';
 import * as hud from './ui/hud.js';
 import * as screens from './ui/screens.js';
 
-// Import goals
+// ── Goals ─────────────────────────────────────────────────────────────────────
 import reachExit from './goals/pool/reach-exit.js';
 import reachDot from './goals/pool/reach-dot.js';
 
-// Import pre-generated rules
+// ── Rules ─────────────────────────────────────────────────────────────────────
+import levelTimer from './rules/pool/level-timer.js';
 import fireHazard from './rules/pool/fire-hazard.js';
 import collectCoins from './rules/pool/collect-coins.js';
 import shiftingWalls from './rules/pool/shifting-walls.js';
@@ -31,6 +32,8 @@ import mimic from './rules/pool/mimic.js';
 // Register everything
 goalRegistry.register(reachExit);
 goalRegistry.register(reachDot);
+
+ruleRegistry.register(levelTimer);
 ruleRegistry.register(fireHazard);
 ruleRegistry.register(collectCoins);
 ruleRegistry.register(shiftingWalls);
@@ -47,6 +50,7 @@ ruleRegistry.register(mimic);
 // ─────────────────────────────────────────────────────────────────────────────
 // Game State
 // ─────────────────────────────────────────────────────────────────────────────
+
 const gs = state.createGameState();
 window._gs = gs;
 let lastTime = 0;
@@ -55,8 +59,6 @@ let lastTime = 0;
 // Level Specs
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Default open-world spec: a dot that needs to reach another dot.
-// Everything else is built by rules on top of this blank canvas.
 function buildDefaultSpec() {
   return {
     world: 'open',
@@ -68,11 +70,6 @@ function buildDefaultSpec() {
   };
 }
 
-function buildMazeSpec(level) {
-  const size = Math.min(5 + Math.floor(level * 1.5), 19);
-  return { world: 'maze', cols: size, rows: size };
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Level Initialization
 // ─────────────────────────────────────────────────────────────────────────────
@@ -81,6 +78,9 @@ function startLevel(spec) {
   spec = spec || buildDefaultSpec();
   gs.currentSpec = spec;
   gs.worldType = spec.world;
+  gs.subLevel = 0;
+  gs.levelTimerExpired = false;
+  gs.dotJustReached = false;
 
   if (spec.world === 'open') {
     const w = spec.width || 640;
@@ -95,7 +95,6 @@ function startLevel(spec) {
     goalRegistry.activate('reach-dot', gs);
 
   } else {
-    // maze world
     const cols = spec.cols || Math.min(5 + Math.floor(gs.level * 1.5), 19);
     const rows = spec.rows || cols;
     gs.cellSize = Math.floor(Math.min(600 / cols, 600 / rows));
@@ -112,17 +111,22 @@ function startLevel(spec) {
   gs.ruleData = {};
   gs.events = [];
 
-  // Re-activate all current rules with fresh init
+  // Re-init all persistent rules
   const ruleIds = [...gs.activeRuleIds];
   for (const rule of ruleRegistry.getActive().slice()) {
-    try { if (rule.destroy) rule.destroy(gs); } catch (e) { /* ignore */ }
+    try { if (rule.destroy) rule.destroy(gs); } catch (_) { /* ignore */ }
   }
   ruleRegistry.getActive().length = 0;
+
+  // Auto-activate the level timer (always on)
+  ruleRegistry.activate('level-timer', gs);
+
+  // Re-activate player's accumulated rules
   for (const id of ruleIds) {
-    ruleRegistry.activate(id, gs);
+    if (id !== 'level-timer') ruleRegistry.activate(id, gs);
   }
 
-  // Inject spec-provided rules (GM pre-built levels can include new rules)
+  // Inject any spec-provided rules (GM pre-built levels)
   if (spec.injectRules) {
     for (const rule of spec.injectRules) {
       ruleRegistry.registerInjected(rule);
@@ -131,22 +135,49 @@ function startLevel(spec) {
   }
 
   // Spawn entities from goals and rules
-  const goalEntities = goalRegistry.spawnAllEntities(gs.maze, gs);
-  const ruleEntities = ruleRegistry.spawnAllEntities(gs.maze, gs);
-  entities.addMany(goalEntities);
-  entities.addMany(ruleEntities);
-
+  entities.addMany(goalRegistry.spawnAllEntities(gs.maze, gs));
+  entities.addMany(ruleRegistry.spawnAllEntities(gs.maze, gs));
   ruleRegistry.onLevelStartAll(gs);
 
   gs.phase = 'playing';
   gs.levelStartTime = Date.now();
   screens.hide();
+
+  // Schedule default mid-level injections (GM can override these with _clearEvents + _addEvent)
+  scheduleDefaultInjections();
+
+  // Fire onLevelStart hook for GM
+  if (typeof window._onLevelStart === 'function') {
+    try { window._onLevelStart({ level: gs.level, spec, gameState: gs }); } catch (_) { /* ignore */ }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Event Queue  (rules/GM can schedule mid-level events)
-// window._addEvent({ type: 'time', ms: 10000 }, fn)
-// window._addEvent({ type: 'moves', count: 20 }, fn)
+// Default Mid-Level Injection Schedule
+// Open-world safe rules: inverted-controls always works; others try and silently fail.
+// AI GM should override this by clearing events and setting its own.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const OPEN_WORLD_RULE_POOL = ['inverted-controls', 'shadow-trail', 'random-warp'];
+
+function scheduleDefaultInjections() {
+  const available = OPEN_WORLD_RULE_POOL.filter(id => !gs.activeRuleIds.includes(id));
+  const picked = available.sort(() => Math.random() - 0.5).slice(0, 3);
+
+  [30000, 60000, 90000].forEach((ms, i) => {
+    const ruleId = picked[i];
+    if (!ruleId) return;
+    window._addEvent({ type: 'time', ms }, (gameState) => {
+      ruleRegistry.activate(ruleId, gameState);
+      gameState.subLevel = (gameState.subLevel || 0) + 1;
+      const rule = ruleRegistry.getById(ruleId);
+      if (rule) window._chat(`↳ ${rule.name} activates.`, gs.gameMaster ? gs.gameMaster.name : 'Game');
+    });
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Event Queue
 // ─────────────────────────────────────────────────────────────────────────────
 
 function processEvents() {
@@ -170,152 +201,105 @@ window._addEvent = function(trigger, action) {
   gs.events.push({ trigger, action, fired: false });
 };
 
+window._clearEvents = function() {
+  gs.events = [];
+};
+
+window._extendTimer = function(ms) {
+  if (gs.ruleData) gs.ruleData.timer_remaining = (gs.ruleData.timer_remaining || 0) + ms;
+};
+
+window._setTimer = function(ms) {
+  if (gs.ruleData) {
+    gs.ruleData.timer_remaining = ms;
+    gs.ruleData.timer_fired = false;
+    gs.levelTimerExpired = false;
+  }
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Level Progression
+// Level End
 // ─────────────────────────────────────────────────────────────────────────────
 
-function onLevelComplete() {
-  gs.phase = 'level-complete';
-  state.recordLevelBeat(gs);
-  const revealedRules = ruleRegistry.getActive().map(r => ({ name: r.name, description: r.description }));
-  screens.showLevelComplete(gs, revealedRules);
+function onLevelEnd() {
+  if (gs.phase !== 'playing') return;
+  gs.phase = 'between-levels';
 
-  function onContinue(e) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      window.removeEventListener('keydown', onContinue);
-      checkSaveTrash();
-    }
+  // Fire hook for GM to respond
+  if (typeof window._onLevelEnd === 'function') {
+    try {
+      window._onLevelEnd({
+        level: gs.level,
+        subLevel: gs.subLevel,
+        dotsReached: gs.ruleData.dotsReached || 0,
+        moves: gs.player ? gs.player.moveCount : 0,
+        activeRuleIds: [...gs.activeRuleIds],
+      });
+    } catch (_) { /* ignore */ }
   }
-  window.addEventListener('keydown', onContinue);
-}
 
-function checkSaveTrash() {
-  const mastered = state.getRulesMasteredThisLevel(gs);
-  if (mastered.length > 0) {
-    processSaveTrash(mastered, 0);
-  } else {
-    showChoices();
-  }
-}
-
-function processSaveTrash(mastered, idx) {
-  if (idx >= mastered.length) {
-    showChoices();
-    return;
-  }
-  const ruleId = mastered[idx];
-  const rule = ruleRegistry.getById(ruleId);
-  const name = rule ? rule.name : ruleId;
-
-  gs.phase = 'save-trash';
-  screens.showSaveTrash(
-    ruleId, name,
-    (id) => { state.saveRule(gs, id); processSaveTrash(mastered, idx + 1); },
-    (id) => { state.trashRule(gs, id); processSaveTrash(mastered, idx + 1); },
-    () => { processSaveTrash(mastered, idx + 1); },
+  screens.showBetweenLevels(
+    gs,
+    gs.gameMaster,
+    (wishText) => handleWish(wishText),
+    () => advanceToNextLevel(),
   );
 }
 
-function showChoices() {
-  // If the GM pre-built the next level, use it instead of the rule picker
-  if (window._nextLevel) {
-    const spec = window._nextLevel;
-    window._nextLevel = null;
-    gs.phase = 'choosing';
-    screens.showNextLevelReady(() => {
-      gs.level++;
-      startLevel(spec);
-    });
-    return;
-  }
-
-  const choices = ruleRegistry.getChoices(3, gs);
-  gs.phase = 'choosing';
-  screens.showRulePicker(
-    choices,
-    (chosen) => {
-      ruleRegistry.activate(chosen.id, gs);
-      gs.level++;
-      startLevel(buildDefaultSpec());
-    },
-    (prompt) => {
-      handlePlayerPrompt(prompt);
-    },
-  );
+function advanceToNextLevel() {
+  gs.level++;
+  gs.subLevel = 0;
+  const spec = window._nextLevel || buildDefaultSpec();
+  window._nextLevel = null;
+  startLevel(spec);
 }
 
-async function handlePlayerPrompt(prompt) {
-  screens.showGenerating(prompt, gs.gameMaster);
-  gs.phase = 'generating';
+// ─────────────────────────────────────────────────────────────────────────────
+// Wish Handling (between levels)
+// ─────────────────────────────────────────────────────────────────────────────
 
+async function handleWish(prompt) {
+  // Store the pending wish — AI reads this and calls _injectRule + optionally sets _nextLevel
   window._pendingWish = {
     prompt,
-    activeRules: ruleRegistry.getActive().map(r => r.id),
+    activeRules: gs.activeRuleIds,
     level: gs.level,
     gameMaster: gs.gameMaster,
     timestamp: Date.now(),
   };
 
-  const timeout = 120000;
+  // Show generating screen only if GM needs it (leave between-levels visible otherwise)
+  // The "generating" state is shown by the GM if needed via window._chat or overlay updates
+  // For now, just wait for injection with a fallback timeout
   const start = Date.now();
+  const timeout = 90000;
 
-  function checkForInjection() {
+  function checkInjection() {
+    if (gs.phase !== 'between-levels') return; // already moved on
+
     if (window._injectedRule) {
       const rule = window._injectedRule;
       window._injectedRule = null;
       window._pendingWish = null;
       try {
         ruleRegistry.registerInjected(rule);
-        ruleRegistry.activate(rule.id, gs);
-      } catch (e) {
-        console.warn('Failed to activate injected rule:', e);
+        // Will be activated on next startLevel
+        gs.activeRuleIds.push(rule.id);
+      } catch (e) { console.warn('Failed to queue injected rule:', e); }
+      // Don't auto-advance — let player click "Level N+1"
+      if (window._addBetweenMsg) {
+        window._addBetweenMsg(`✓ "${rule.name}" queued for next level.`, 'System', 'gm');
       }
-      gs.level++;
-      const spec = window._nextLevel || buildDefaultSpec();
-      window._nextLevel = null;
-      startLevel(spec);
       return;
     }
 
-    if (Date.now() - start > timeout) {
-      console.warn('AI generation timed out, using fallback');
-      window._pendingWish = null;
-      const fallback = ruleRegistry.getChoices(1, gs);
-      if (fallback.length > 0) ruleRegistry.activate(fallback[0].id, gs);
-      gs.level++;
-      startLevel(buildDefaultSpec());
-      return;
+    if (Date.now() - start < timeout) {
+      setTimeout(checkInjection, 500);
     }
-
-    setTimeout(checkForInjection, 500);
   }
 
-  checkForInjection();
+  checkInjection();
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// External API (Claude Code / GM interface)
-// ─────────────────────────────────────────────────────────────────────────────
-
-window._injectRule = function(rule) { window._injectedRule = rule; };
-
-window._completeLevel = function() {
-  if (gs.phase === 'playing') onLevelComplete();
-};
-
-window._failLevel = function(message) {
-  if (gs.phase === 'playing') {
-    window._systemMsg(message || 'Level failed!');
-    startLevel(gs.currentSpec);
-  }
-};
-
-window._setGoal = function(description) { gs.currentGoalText = description; };
-
-// GM can pre-build the next level at any time during play.
-// window._nextLevel = { world: 'open', goalPos: {x,y}, injectRules: [...], ... }
-// It will be consumed when the current level completes.
-window._nextLevel = null;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sidebar Chat
@@ -323,18 +307,26 @@ window._nextLevel = null;
 
 function addSidebarMsg(message, sender, type = 'gm') {
   const container = document.getElementById('sidebar-messages');
-  if (!container) return;
-  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const el = document.createElement('div');
-  el.className = `sidebar-msg ${type}`;
-  el.innerHTML = `<span class="msg-sender">${sender} <span class="msg-time">${time}</span></span>${message}`;
-  container.appendChild(el);
-  container.scrollTop = container.scrollHeight;
+  if (container) {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const el = document.createElement('div');
+    el.className = `sidebar-msg ${type}`;
+    el.innerHTML = `<span class="msg-sender">${sender} <span class="msg-time">${time}</span></span>${message}`;
+    container.appendChild(el);
+    container.scrollTop = container.scrollHeight;
+  }
+  // Track in chat log
+  gs.chatLog.push({ text: message, sender, type, ts: Date.now() });
 }
 
-window._chat = function(message, sender = 'Game Master') {
-  addSidebarMsg(message, sender, 'gm');
+window._chat = function(message, sender) {
+  addSidebarMsg(message, sender || (gs.gameMaster ? gs.gameMaster.name : 'Game Master'), 'gm');
+  // Also pipe to between-levels panel if open
+  if (gs.phase === 'between-levels' && typeof window._addBetweenMsg === 'function') {
+    window._addBetweenMsg(message, sender || (gs.gameMaster ? gs.gameMaster.name : 'Game Master'), 'gm');
+  }
 };
+
 window._playerMessages = [];
 window._systemMsg = function(message) {
   addSidebarMsg(message, 'System', 'system');
@@ -350,6 +342,7 @@ function initSidebarChat() {
     if (!msg) return;
     addSidebarMsg(msg, 'You', 'player');
     window._playerMessages.push({ text: msg, timestamp: Date.now() });
+    gs.chatLog.push({ text: msg, sender: 'You', type: 'player', ts: Date.now() });
     inputEl.value = '';
   }
 
@@ -361,35 +354,22 @@ function initSidebarChat() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GM Tick (fires every 30s during play — hook into window._onGmTick)
+// External API
 // ─────────────────────────────────────────────────────────────────────────────
 
-const GM_TICK_MS = 30000;
-let lastGmTick = 0;
-
-function maybeGmTick(now) {
-  if (gs.phase !== 'playing') return;
-  if (now - lastGmTick >= GM_TICK_MS) {
-    lastGmTick = now;
-    if (typeof window._onGmTick === 'function') {
-      try {
-        window._onGmTick({
-          level: gs.level,
-          phase: gs.phase,
-          worldType: gs.worldType,
-          activeRuleIds: [...gs.activeRuleIds],
-          gameMaster: gs.gameMaster,
-          playerMoves: gs.player ? gs.player.moveCount : 0,
-          playerMessages: [...window._playerMessages],
-          timestamp: now,
-        });
-      } catch (e) { console.warn('_onGmTick error:', e); }
-    }
+window._injectRule = function(rule) { window._injectedRule = rule; };
+window._completeLevel = function() { if (gs.phase === 'playing') onLevelEnd(); };
+window._failLevel = function(message) {
+  if (gs.phase === 'playing') {
+    window._systemMsg(message || 'Level failed — restarting.');
+    startLevel(gs.currentSpec);
   }
-}
+};
+window._setGoal = function(text) { gs.currentGoalText = text; };
+window._nextLevel = null;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Open World Background Render
+// Open World Background
 // ─────────────────────────────────────────────────────────────────────────────
 
 function drawOpenWorldBackground() {
@@ -398,8 +378,7 @@ function drawOpenWorldBackground() {
   const h = gs.world.height;
   const oy = gs.hudHeight;
 
-  // Subtle dot grid
-  ctx.fillStyle = '#1c1c2e';
+  ctx.fillStyle = '#181828';
   const step = 40;
   for (let x = step; x < w; x += step) {
     for (let y = step; y < h; y += step) {
@@ -409,9 +388,8 @@ function drawOpenWorldBackground() {
     }
   }
 
-  // Border
-  ctx.strokeStyle = '#2a2a4a';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#22223a';
+  ctx.lineWidth = 1.5;
   ctx.strokeRect(1, oy + 1, w - 2, h - 2);
 }
 
@@ -420,21 +398,34 @@ function drawOpenWorldBackground() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function gameLoop(timestamp) {
-  const dt = Math.min(timestamp - lastTime, 50); // cap dt to prevent spiral
+  const dt = Math.min(timestamp - lastTime, 50);
   lastTime = timestamp;
 
   if (gs.phase === 'playing') {
 
-    // ── Open World ────────────────────────────────────────────────────────────
+    // Check for timer expiry (set by level-timer rule)
+    if (gs.levelTimerExpired) {
+      gs.levelTimerExpired = false;
+      onLevelEnd();
+      input.clearFrame();
+      requestAnimationFrame(gameLoop);
+      return;
+    }
+
+    // Clear dot-reached flag (rules can watch gs.dotJustReached)
+    gs.dotJustReached = false;
+
     if (gs.worldType === 'open') {
-      // Apply onInput rules to each held direction
+      // ── Open World ──────────────────────────────────────────────────────────
+
+      // Process held keys through onInput rules
       const rawHeld = input.getHeld();
       const heldDirs = [];
       for (const dir of rawHeld) {
         let d = dir;
         for (const rule of ruleRegistry.getActive()) {
           if (rule.onInput) {
-            try { d = rule.onInput(d, gs) || d; } catch (e) { /* ignore */ }
+            try { d = rule.onInput(d, gs) || d; } catch (_) { /* ignore */ }
           }
           if (!d) break;
         }
@@ -451,14 +442,8 @@ function gameLoop(timestamp) {
       }
 
       processEvents();
+      goalRegistry.checkAll(gs); // check() handles respawn+scoring; returns false always
 
-      // Goal check
-      const keyBlocked = gs.activeRuleIds.includes('key-and-lock') && !gs.ruleData.keyCollected;
-      if (!keyBlocked && goalRegistry.checkAll(gs)) {
-        onLevelComplete();
-      }
-
-      // Render
       canvas.clear();
       drawOpenWorldBackground();
       entities.renderAll(canvas.ctx, 1, gs.hudHeight);
@@ -467,8 +452,9 @@ function gameLoop(timestamp) {
       ruleRegistry.renderAll(canvas.ctx, gs);
       hud.render(canvas.ctx, gs);
 
-    // ── Maze World ────────────────────────────────────────────────────────────
     } else {
+      // ── Maze World ──────────────────────────────────────────────────────────
+
       let direction = input.getDirection();
       if (direction) direction = ruleRegistry.processInput(direction, gs);
       if (direction) player.tryMove(gs.player, direction, gs.maze);
@@ -486,7 +472,7 @@ function gameLoop(timestamp) {
       const coinsBlocked = gs.activeRuleIds.includes('collect-coins') && (gs.ruleData.coinsRemaining ?? 0) > 0;
       const keyBlocked = gs.activeRuleIds.includes('key-and-lock') && !gs.ruleData.keyCollected;
       if (!coinsBlocked && !keyBlocked && goalRegistry.checkAll(gs)) {
-        onLevelComplete();
+        onLevelEnd();
       }
 
       canvas.clear();
@@ -499,53 +485,86 @@ function gameLoop(timestamp) {
     }
   }
 
-  maybeGmTick(timestamp);
   input.clearFrame();
   requestAnimationFrame(gameLoop);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ESC — skip to wish prompt
+// Key Handlers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function escapeToPrompt() {
-  if (gs.phase !== 'playing') return;
-  for (const rule of ruleRegistry.getActive().slice()) {
-    try { if (rule.destroy) rule.destroy(gs); } catch (e) { /* ignore */ }
-  }
-  gs.phase = 'choosing';
-  gs.level++;
-  showChoices();
-}
-
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') escapeToPrompt();
+  // L or ESC during play → go to between-levels chat
+  if ((e.key === 'l' || e.key === 'L' || e.key === 'Escape') && gs.phase === 'playing') {
+    onLevelEnd();
+  }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GM Tick (30s interval during play — set window._onGmTick to receive it)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GM_TICK_MS = 30000;
+let lastGmTick = 0;
+
+setInterval(() => {
+  if (gs.phase !== 'playing') return;
+  const now = Date.now();
+  if (now - lastGmTick < GM_TICK_MS) return;
+  lastGmTick = now;
+  if (typeof window._onGmTick === 'function') {
+    try {
+      window._onGmTick({
+        level: gs.level,
+        subLevel: gs.subLevel,
+        worldType: gs.worldType,
+        activeRuleIds: [...gs.activeRuleIds],
+        gameMaster: gs.gameMaster,
+        playerMoves: gs.player ? gs.player.moveCount : 0,
+        dotsReached: gs.ruleData.dotsReached || 0,
+        timerRemaining: gs.ruleData.timer_remaining || 0,
+        playerMessages: [...window._playerMessages],
+      });
+    } catch (e) { console.warn('_onGmTick error:', e); }
+  }
+}, 1000);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Boot
 // ─────────────────────────────────────────────────────────────────────────────
 
 function init() {
-  canvas.resize(40, 15, 15); // placeholder until first level
-
+  canvas.resize(40, 15, 15);
   initSidebarChat();
-
   gs.phase = 'menu';
-  screens.showMenu(gs, (gameMaster, initialPrompt) => {
-    gs.gameMaster = gameMaster;
-    window._gameMaster = gameMaster;
-    const header = document.getElementById('sidebar-gm-name');
-    if (header) header.textContent = `${gameMaster.emoji} ${gameMaster.name}`;
-    window._systemMsg(`${gameMaster.name} has entered the game.`);
 
-    if (initialPrompt) {
-      gs.initialPrompt = initialPrompt;
+  screens.showMenu(gs, (gm) => {
+    // GM selected — show intro chat
+    gs.gameMaster = gm;
+    window._gameMaster = gm;
+
+    const header = document.getElementById('sidebar-gm-name');
+    if (header) header.textContent = `${gm.emoji} ${gm.name}`;
+
+    window._systemMsg(`${gm.name} has entered the game.`);
+    gs.phase = 'intro-chat';
+
+    screens.showIntroChat(gm, (initialMessage) => {
+      window._introMessage = initialMessage;
+      gs.phase = 'playing';
       startLevel(buildDefaultSpec());
-      setTimeout(() => handlePlayerPrompt(initialPrompt), 500);
-    } else {
-      startLevel(buildDefaultSpec());
-    }
+      if (initialMessage) {
+        // Store as pending wish so AI can process it
+        window._pendingWish = {
+          prompt: initialMessage,
+          activeRules: [],
+          level: 1,
+          gameMaster: gm,
+          timestamp: Date.now(),
+          context: 'intro',
+        };
+      }
+    });
   });
 
   requestAnimationFrame(gameLoop);

@@ -184,3 +184,88 @@ The GM now has full control over every level's geometry. The canonical workflow:
 The event queue (`_addEvent`) is for mid-level surprises. Rule injection at 15 seconds in, wall appearing at move 20, etc.
 
 The baseline game (dot → dot) is intentionally boring. The GM is supposed to make it interesting. Session 2.0 should lean into this hard.
+
+---
+
+## Part C: Flow Redesign (this session, continued)
+
+### Problem Statement
+
+Session 1 had a rule picker between every level — the player was actively choosing what happened to them. The new vision flips this: **the GM decides everything, and the player reacts.**
+
+### New Game Flow
+
+```
+Menu → Pick GM → Intro Chat → Level 1 starts
+                                    │
+                              2-minute timer
+                              Dots respawn on reach
+                              Rules inject at 30/60/90s (1.1, 1.2, 1.3)
+                                    │
+                              Timer fires (or L pressed)
+                                    │
+                          Between-levels chat screen
+                          (stats + GM narrative + wish input)
+                                    │
+                              Level 2 → (click or press L)
+                                    │
+                              Repeat, but bigger
+```
+
+### Sub-levels vs Full Level Changes
+
+**Sub-levels** (1.0 → 1.1 → 1.2 → 1.3): Frequent, small, mid-level. Rule injection, parameter change. No screen transition. HUD updates. GM sends one sentence in chat.
+
+**Full level change** (1 → 2 → 3): Infrequent, potentially radical. Different world geometry. Entirely new rules. Could replace the game engine itself. GM builds this during level N while player is playing. Between-levels chat is where the GM explains the narrative.
+
+### What Was Built (Part C)
+
+**`level-timer.js`** — A rule (so it's modifiable) that counts down 2 minutes. Renders:
+- Green→yellow→red progress bar at HUD boundary
+- Bold countdown timer (1:59, 1:58...) at top of play area
+- Red screen-edge flash when ≤10s remain
+- Sets `gs.levelTimerExpired` when done; main.js detects this
+
+**`reach-dot.js` (modified)** — Dot never ends the level. When reached:
+- Respawns at a new random position (≥100px from player)
+- Increments `gs.ruleData.dotsReached`
+- Sets `gs.dotJustReached` briefly so rules can react
+
+**`showIntroChat()`** — Screen after GM selection. GM speaks with personality-specific welcome message. Player can respond (optional). "Start Level 1 →" button always visible. Canned GM follow-up (AI can override with `window._respondToPlayer`).
+
+**`showBetweenLevels()`** — Between-levels chat screen. Shows level summary (dots, moves), last 6 chat messages from the level, wish input, and "Level 2 →" button. L key also advances.
+
+**`hud.js` (simplified)** — Shows LVL 1.2 (sub-level), ⬤ dot count, moves, "ESC · L → chat" hint.
+
+**`main.js` (rewritten)**:
+- Boot: menu → intro chat → level 1 (no direct-to-game skip)
+- `level-timer` auto-activated every level (before accumulated player rules)
+- Default injection schedule: 3 open-world rules at 30/60/90s (AI overrides with `_clearEvents` + `_addEvent`)
+- Timer check at top of game loop: if `gs.levelTimerExpired`, call `onLevelEnd()`
+- `onLevelEnd()` fires `_onLevelEnd` hook, then shows between-levels screen
+- L and ESC both trigger `onLevelEnd()` during play
+- `_onLevelStart` hook fires after level initializes
+
+### New GM Hooks
+
+```js
+window._onLevelStart = function({ level, spec, gameState }) { ... };
+window._onLevelEnd = function({ level, subLevel, dotsReached, moves, activeRuleIds }) { ... };
+window._extendTimer(ms);       // add time to running timer
+window._setTimer(ms);          // set timer directly
+window._clearEvents();         // clear default injection schedule
+window._addBetweenMsg(text, sender);  // add to between-levels chat panel
+```
+
+### Browser Testing Screenshots
+
+**Intro Chat** — GM speaks immediately. Personality tone clear ("Ah. A visitor. I sense a wish forming. Speak carefully."). Optional player input. Start Level 1 button prominent.
+
+**Playing — Timer** — 1:59 countdown green and bold at top of play area. Progress bar at HUD boundary. HUD shows LVL 1, dots: 0, moves.
+
+**Playing — Dot Reached (1:56, ⬤ 1)** — After reaching the first dot, it respawned at a completely new position (bottom-center). HUD shows ⬤ 1. Player trail visible from motion.
+
+**Playing — LVL 1.2** — After manually setting subLevel=2, dotsReached=4 via console: HUD shows "LVL 1.2" and "⬤ 4" in gold. Timer still running.
+
+**Between Levels (L key)** — "LEVEL 1.2 COMPLETE · ⬤ 4 dots · ↔ 14 moves". Chat panel with GM header, wish input, "Level 2 → (OR PRESS L)" button. Game world visible and frozen behind.
+

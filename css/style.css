@@ -472,3 +472,154 @@ body {
 #gm-prompt-section.hidden {
   display: none;
 }
+
+/* ── Chat Panel (intro + between-levels overlays) ────────────────────────── */
+
+.chat-panel {
+  background: #0a0a15;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  width: 90%;
+  max-width: 460px;
+}
+
+.chat-panel-gm-header {
+  font-size: 0.9rem;
+  font-weight: bold;
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-log {
+  max-height: 180px;
+  overflow-y: auto;
+  margin-bottom: 0.7rem;
+  padding-right: 2px;
+}
+
+.chat-msg {
+  margin-bottom: 0.5rem;
+  animation: sidebarFadeIn 0.15s ease-out;
+}
+
+.chat-msg .msg-sender {
+  display: block;
+  font-size: 0.68rem;
+  color: #555;
+  margin-bottom: 0.1rem;
+}
+
+.chat-msg .msg-text {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #ccc;
+}
+
+.chat-msg.player-msg {
+  text-align: right;
+}
+
+.chat-msg.player-msg .msg-sender {
+  color: #00ff8860;
+}
+
+.chat-msg.player-msg .msg-text {
+  color: #00ff88;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.chat-input-row input {
+  flex: 1;
+  background: #0d0d1a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #e0e0e0;
+  padding: 0.45rem 0.7rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.82rem;
+  outline: none;
+}
+
+.chat-input-row input:focus {
+  border-color: #555;
+}
+
+.chat-input-row input::placeholder {
+  color: #3a3a4a;
+}
+
+.chat-input-row button {
+  background: #1a1a2e;
+  border: 1px solid #3a3a5a;
+  border-radius: 4px;
+  color: #8888cc;
+  padding: 0.45rem 0.8rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chat-input-row button:hover {
+  background: #2a2a4a;
+  color: #aaaaff;
+}
+
+/* Start / Next Level button */
+.overlay-start-btn {
+  margin-top: 1rem;
+  padding: 0.75rem 2.2rem;
+  background: #00ff88;
+  color: #000;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  font-size: 0.95rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: all 0.15s;
+}
+
+.overlay-start-btn:hover {
+  background: #00cc66;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,255,136,0.3);
+}
+
+/* Between-levels header */
+.between-header {
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.between-level-num {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #00ff88;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.between-stats {
+  margin-top: 0.4rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.stat-chip {
+  font-size: 0.85rem;
+  color: #888;
+  background: #1a1a2a;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+}

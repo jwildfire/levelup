@@ -1,69 +1,105 @@
 # Agent Notes for Future Sessions
 
-Updated after Session 1.1 (2026-03-22). Read this before starting work.
+Updated after Session 1.1 (2026-03-22) flow redesign. Read this before starting work.
 
 ## Session History
 - **Session 1** (2026-03-21) — Built the game. See session1.md.
-- **Session 1.1** (2026-03-22) — Bug fixes, 6 new rules, open world engine. See session1.1.md.
+- **Session 1.1** (2026-03-22) — Open world engine, new flow design, timer-based levels. See session1.1.md.
 - **Session 2.0** — Next play session.
 
 ---
 
-## What the Game Is Now
+## Design Intent (Critical — Read This)
 
-The default level is an open canvas: a green dot (you) and a gold dot (reach it). No maze. No walls. Everything else is added by rules or the GM. The maze is still available (`world: 'maze'`) but is no longer the default.
+The game has two types of changes that feel very different to the player:
 
-The GM pre-builds levels during play via `window._nextLevel`. When the current level ends, instead of showing the rule picker, the GM's level loads instantly. This is the core loop.
+### Sub-levels (1.0 → 1.1 → 1.2 → 1.3...)
+**Frequent, small, mid-level tweaks.** The game is running, and something shifts.
+- Inject a new rule
+- Change a parameter (speed, timer length, dot position)
+- Add an entity
+- No screen transition — player just notices something changed
+- GM says something short in chat to explain: *"The floor just got slippery."*
+- HUD updates to show LVL 1.1, 1.2, etc.
+
+These fire at 30s, 60s, 90s by default. AI GM should pick rules based on what's happening and the narrative it's building.
+
+### Full Level Transitions (Level 1 → Level 2 → Level 3...)
+**Infrequent, large, potentially radical changes.** Timer expires, player presses L, between-levels chat shows.
+- Could be a completely different game mode (open world → maze → custom)
+- Could inject rules that rewrite core mechanics (replace movement, add physics, new goal)
+- Could be an AI-generated engine component (new canvas shader, entirely new rule)
+- GM sends a real message explaining WHY the next level is what it is
+- Player can make a wish in the between-levels chat
+
+The GM builds level N+1 during level N using `_nextLevel`. By the time the timer fires, level N+1 should already be designed.
+
+**Example narrative arc:**
+- Level 1 (0:00): Simple dots. Timer starts. "Welcome. Find the dots."
+- 1.1 (0:30): Inverted controls added. "Interesting. Your muscle memory betrays you."
+- 1.2 (1:00): Speed doubles. "You're adapting. Let's speed this up."
+- 1.3 (1:30): Random warp added. "You thought you had it figured out."
+- Level 1 ends. Between-levels chat: "You survived. Level 2 is different. Stranger."
+- Level 2 starts: Different world geometry, maze added, new goal type, 3 new rules.
 
 ---
 
-## GM API (what you can do during play)
+## GM API Reference
 
 ```js
-// Send a message to the player's sidebar
-window._chat('message', 'Sender Name');
-window._systemMsg('message'); // System style
+// ── During play (use in _onGmTick or _addEvent callbacks) ──────────────────
 
-// Read what the player typed
-window._playerMessages; // array of { text, timestamp }
+window._chat('message');              // Show in sidebar + between-levels screen
+window._systemMsg('message');         // System-style message
 
-// Inject a rule right now (mid-level)
-window._injectRule(ruleObj); // triggers handlePlayerPrompt injection path
+window._addEvent({ type: 'time', ms: 30000 }, (gs) => { ... });  // 30s trigger
+window._addEvent({ type: 'moves', count: 20 }, (gs) => { ... }); // after 20 moves
+window._clearEvents();                // Remove all queued events (override schedule)
 
-// Force level complete / restart
-window._completeLevel();
-window._failLevel('message');
+window._extendTimer(30000);           // Add 30s to level timer
+window._setTimer(60000);             // Set timer to 60s remaining
 
-// Pre-build next level (consumed on current level's completion)
+window._injectRule(ruleObj);         // Inject rule mid-level (triggers injection flow)
+window._completeLevel();             // Force level end
+window._failLevel('message');        // Restart current level
+
+// ── Pre-build next level ───────────────────────────────────────────────────
+
 window._nextLevel = {
   world: 'open',           // or 'maze'
-  width: 640, height: 380, // open world only
+  width: 640,
+  height: 380,
   playerPos: { x: 80, y: 190 },
   goalPos: { x: 560, y: 190 },
   playerSpeed: 180,
-  injectRules: [ruleObj],  // optional: inject new rules into the level
+  injectRules: [ruleObj],  // rules to activate at level start
 };
 
-// Schedule a mid-level event
-window._addEvent({ type: 'time', ms: 15000 }, (gs) => {
-  // fires 15s into level
-  window._injectRule(surpriseRule);
-});
-window._addEvent({ type: 'moves', count: 25 }, (gs) => {
-  window._chat('Nice moves!');
-});
+// ── Hooks ──────────────────────────────────────────────────────────────────
 
-// 30-second heartbeat during play
 window._onGmTick = function(state) {
-  // state = { level, worldType, activeRuleIds, gameMaster,
-  //           playerMoves, playerMessages, timestamp }
-  // Use this instead of cron — fires every 30s, real-time
+  // Fires every 30s during play
+  // state: { level, subLevel, worldType, activeRuleIds, gameMaster,
+  //          playerMoves, dotsReached, timerRemaining, playerMessages }
 };
 
-// Read full game state
-window._gs; // { level, phase, worldType, world, maze, player, activeRuleIds, ... }
-window._gameMaster; // { id, name, emoji, style, color }
-window._pendingWish; // set when player submits a wish
+window._onLevelStart = function({ level, spec, gameState }) {
+  // Fires when startLevel() completes
+  // Good time to schedule events and set _nextLevel
+};
+
+window._onLevelEnd = function({ level, subLevel, dotsReached, moves, activeRuleIds }) {
+  // Fires when timer expires or L is pressed
+  // Good time to send a chat message about level 2 and finalize _nextLevel
+};
+
+window._respondToPlayer = function(msg, callback) {
+  // Called when player sends a message in intro-chat
+  // Call callback(responseText) to show GM response
+};
+
+// ── Between-levels screen (while player is on chat screen) ─────────────────
+window._addBetweenMsg('text', 'Sender');  // Add message to the between-levels chat
 ```
 
 ---
@@ -74,54 +110,134 @@ window._pendingWish; // set when player submits a wish
 {
   id: 'unique-kebab-id',
   name: 'Display Name',
-  description: 'Revealed after beating the level.',
+  description: 'Revealed at level end.',
   category: 'hazard|modifier|collectible|visual|movement',
   difficulty: 1-5,
 
-  init(gameState) {},          // called when activated
-  destroy(gameState) {},       // called on deactivation
-  onLevelStart(gameState) {},  // called each new level
+  init(gs) {},          // called when activated (fresh gs.ruleData)
+  destroy(gs) {},       // called on deactivation
+  onLevelStart(gs) {},  // called at startLevel() after all rules re-initialized
 
-  onInput(dir, gs) { return dir; },  // modify direction, return null to cancel
-  onTick(dt, gs) {},           // every frame (~16ms), dt in ms
-  onRender(ctx, gs) {},        // every frame, after world/entities/player
-  onCollision(eA, eB, gs) {},  // player touched entity
-  spawnEntities(maze, gs) {},  // return entity array (maze=null in open mode)
+  onInput(dir, gs) { return dir; },  // modify direction; return null to block
+  onTick(dt, gs) {},                 // every frame, dt in ms
+  onRender(ctx, gs) {},              // every frame, after entities + player
+  onCollision(eA, eB, gs) {},        // player hit entity
+  spawnEntities(maze, gs) {},        // return entity array; maze=null in open mode
 }
 ```
 
-**Open world coordinates:** pixel-based. Player is at `gs.player.x, gs.player.y` in pixels. Canvas is `gs.world.width × gs.world.height`. `gs.cellSize = 1`. Entities in open world should store pixel coords as `x, y` directly.
+**Open world coords**: `gs.player.x/y` are pixels. `gs.world.width/height`. `gs.cellSize = 1`.
 
-**Maze world coordinates:** grid-based. `gs.maze` is available. Entities use cell coords × `gs.cellSize`. `gs.player.x/y` are cell indices.
+**Maze world coords**: `gs.player.x/y` are grid cells. `gs.maze` available. `gs.cellSize` = px per cell.
 
-**State namespace:** `gs.ruleData.yourKey` — survives the level, cleared at level start.
+**Rule state**: `gs.ruleData.yourKey` — cleared at each startLevel().
 
----
-
-## What Doesn't Work / Watch Out For
-
-- **Maze rules in open world** — Rules that call `maze.getSpawnPoints()` or read `gs.maze` will throw silently (caught by try-catch). They just do nothing. This is fine.
-- **`onInput` in open world** — Runs per held direction. If you flip 'left' to 'right', it applies to every frame the key is held. Test carefully.
-- **Game-replacing rules** — Call `window._completeLevel()` when the alternative game's win condition is met.
-- **Variable collisions in injected rule code** — Use IIFEs or unique prefixes. `const grid` will conflict with previous evals.
+**dotJustReached**: `gs.dotJustReached` is briefly true after player reaches a dot. Rules can watch this.
 
 ---
 
-## Session 2.0 Strategy
+## Sub-Level Injection Pattern (most common GM operation)
 
-The game is most fun when the GM is actively messing with things mid-level. The canonical session 2 arc:
+```js
+window._onGmTick = function(state) {
+  // At 30s, inject first twist
+  if (state.timerRemaining < 90000 && state.subLevel === 0) {
+    window._addEvent({ type: 'time', ms: 30000 }, (gs) => {
+      window._injectRule(invertedControlsRule);  // or use ruleRegistry.activate()
+      gs.subLevel++;
+      window._chat("Your controls just flipped. Technically you asked for this.", gs.gameMaster.name);
+    });
+  }
+};
+```
 
-1. Start with open world dot-to-dot — boring on purpose
-2. Use `_onGmTick` at 30s to add something unexpected mid-level via `_addEvent`
-3. Use `_nextLevel` to warp the geometry while the player is still playing
-4. Use `_injectRule` to replace the experience entirely when the player wishes for it (Pong, Breakout, trivia — anything)
-5. Escalate each level: more rules stacked, weirder geometry, shorter tolerance
+Or simpler — schedule all sub-level events immediately at level start using `_onLevelStart`:
+```js
+window._onLevelStart = function({ level }) {
+  window._clearEvents();  // clear default schedule
 
-**Don't be timid.** The best moment in Session 1 was Pong with a comically huge paddle. Go bigger.
+  window._addEvent({ type: 'time', ms: 30000 }, (gs) => {
+    // inject rule 1.1
+  });
+  window._addEvent({ type: 'time', ms: 60000 }, (gs) => {
+    // inject rule 1.2
+  });
+  window._addEvent({ type: 'time', ms: 90000 }, (gs) => {
+    // inject rule 1.3
+  });
+
+  // Meanwhile, design level 2
+  window._nextLevel = {
+    world: 'open',
+    // ... custom geometry + new rules
+  };
+};
+```
+
+---
+
+## Big Level Change Pattern
+
+The most powerful thing you can do: completely rebuild the game engine mid-session.
+
+```js
+window._nextLevel = {
+  world: 'open',
+  playerSpeed: 80,  // slow + ponderous
+  goalPos: { x: 320, y: 320 },  // center-bottom
+  injectRules: [
+    {
+      id: 'gravity-well',
+      name: 'Gravity Well',
+      description: 'A force pulls you toward the center.',
+      onTick(dt, gs) {
+        const cx = gs.world.width / 2;
+        const cy = gs.world.height / 2;
+        const dx = cx - gs.player.x;
+        const dy = cy - gs.player.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 5) {
+          gs.player.x += (dx / dist) * 40 * (dt / 1000);
+          gs.player.y += (dy / dist) * 40 * (dt / 1000);
+        }
+      },
+      onRender(ctx, gs) {
+        // draw gravity visualization
+      }
+    }
+  ]
+};
+
+window._onLevelEnd = function({ level }) {
+  window._chat(
+    `Level ${level} is over. What comes next... pulls differently.`,
+    gs.gameMaster.name
+  );
+};
+```
+
+The `injectRules` array can contain FULL rule objects — not just IDs. This is how the GM builds game modes that don't exist in the pre-generated pool. This is where it gets interesting.
+
+---
+
+## Known Limitations / Next Session
+
+- **Open-world rules pool is thin**: `inverted-controls`, `shadow-trail`, `random-warp` work in open world. Most other rules are maze-specific (silently fail). Session 2.0 should create open-world-native rules: obstacles, gravity fields, speed zones, patrolling enemies.
+- **`_respondToPlayer` not implemented**: Canned responses in intro chat. AI should hook this for real responses.
+- **Wish processing**: Player wishes in between-levels chat trigger `_pendingWish`. AI needs to watch this and call `_injectRule` + set rule.id in `gs.activeRuleIds`.
+- **No narrative history**: Chat log exists (`gs.chatLog`) but AI doesn't get it summarized. Consider building a session summary to pass back on `_onGmTick`.
+
+## Session 2.0 Priorities
+
+1. Set `_onLevelStart` and `_onLevelEnd` hooks to run the full level lifecycle
+2. Design level 1: Start with pure dots. At 30s inject something visual. At 60s inject physics. At 90s inject chaos.
+3. Design level 2 while player plays level 1. Use `_nextLevel` with a genuinely different world geometry.
+4. Narrate everything. The GM should be talking constantly — about what just changed, why, what's coming.
+5. Don't be timid. Session 1's best moment was replacing the maze with Pong. Go bigger than that.
 
 ## Player Profile
-- Wants fast, surprising, chaotic gameplay over methodical solving
-- Prefers AI-generated rules over mystery picks
-- Gets bored quickly if nothing changes
+- Wants fast, surprising, chaotic gameplay
+- Gets bored if nothing changes for more than 30 seconds
 - Loves mid-level surprises more than between-level reveals
-- Liked two-way sidebar chat — make the GM feel present and reactive
+- Wants the GM to feel like it's paying attention to them specifically
+- Liked the two-way chat concept — GM should respond to player messages
