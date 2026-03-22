@@ -1,13 +1,23 @@
 const rules = {};
 const active = [];
+// Separate Map for dynamically injected rules — survives even if rules object were reset
+const injectedRules = new Map();
 
 export function register(rule) {
   rules[rule.id] = rule;
 }
 
+export function registerInjected(rule) {
+  injectedRules.set(rule.id, rule);
+  rules[rule.id] = rule;
+}
+
 export function activate(ruleId, gameState) {
-  const rule = rules[ruleId];
+  // Check injected rules first as they may have been registered under both maps
+  const rule = rules[ruleId] || injectedRules.get(ruleId);
   if (!rule) return;
+  // Ensure it's always in the main rules map
+  if (!rules[ruleId]) rules[ruleId] = rule;
   if (active.some(r => r.id === ruleId)) return;
   try {
     if (rule.init) rule.init(gameState);

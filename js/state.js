@@ -12,10 +12,15 @@ export function createGameState() {
     cellSize: 32,
     hudHeight: 40,
 
-    // Phase: 'menu' | 'playing' | 'level-complete' | 'choosing' | 'save-trash'
+    // Phase: 'menu' | 'intro-chat' | 'playing' | 'between-levels' | 'generating'
     phase: 'menu',
     timer: 0,
     levelStartTime: 0,
+    subLevel: 0,           // mid-level injection count (shows as LVL 1.2)
+    levelTimerExpired: false,
+
+    // Chat log — all messages during current session
+    chatLog: [],
 
     // Persistent
     savedRuleIds: saved.savedRuleIds,
