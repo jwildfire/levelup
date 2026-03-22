@@ -177,7 +177,10 @@ function scheduleDefaultInjections() {
   const available = OPEN_WORLD_RULE_POOL.filter(id => !gs.activeRuleIds.includes(id));
   const picked = available.sort(() => Math.random() - 0.5).slice(0, 3);
 
-  [30000, 60000, 90000].forEach((ms, i) => {
+  // Level 1 is 60s — only inject once at 30s. Later levels get 3 injections.
+  const schedule = (gs.level === 1) ? [30000] : [30000, 60000, 90000];
+
+  schedule.forEach((ms, i) => {
     const ruleId = picked[i];
     if (!ruleId) return;
     window._addEvent({ type: 'time', ms }, (gameState) => {

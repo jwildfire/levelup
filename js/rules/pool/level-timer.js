@@ -1,5 +1,6 @@
 // Level Timer — auto-activated every level.
-// Counts down 2 minutes, then fires gs.levelTimerExpired.
+// Level 1: 60s (quick warm-up while GM builds level 2).
+// Level 2+: 120s. Fires gs.levelTimerExpired when done.
 // This is a rule so it can be modified, extended, or removed.
 // GM API:
 //   gs.ruleData.timer_remaining   — ms left (read/write)
@@ -15,12 +16,15 @@ export default {
   difficulty: 1,
 
   init(gs) {
-    gs.ruleData.timer_duration = 120000;
+    // Level 1 is a short warm-up (60s). Later levels get 2 minutes.
+    gs.ruleData.timer_duration = (gs.level === 1) ? 60000 : 120000;
     gs.ruleData.timer_remaining = gs.ruleData.timer_duration;
     gs.ruleData.timer_fired = false;
   },
 
   onLevelStart(gs) {
+    // Re-calc duration in case level changed (level 1 = 60s, rest = 120s)
+    gs.ruleData.timer_duration = (gs.level === 1) ? 60000 : 120000;
     gs.ruleData.timer_remaining = gs.ruleData.timer_duration;
     gs.ruleData.timer_fired = false;
   },
