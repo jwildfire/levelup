@@ -29,6 +29,13 @@ import shadowTrail from './rules/pool/shadow-trail.js';
 import randomWarp from './rules/pool/random-warp.js';
 import mimic from './rules/pool/mimic.js';
 
+// ── Game-Replacing Mini-Games ────────────────────────────────────────────────
+import pong from './rules/library/pong/rule.js';
+import asteroidDodge from './rules/library/asteroid-dodge/rule.js';
+import snakeGame from './rules/library/snake/rule.js';
+import flySwatter from './rules/library/fly-swatter/rule.js';
+import breakout from './rules/library/breakout/rule.js';
+
 // Register everything
 goalRegistry.register(reachExit);
 goalRegistry.register(reachDot);
@@ -46,6 +53,12 @@ ruleRegistry.register(keyAndLock);
 ruleRegistry.register(shadowTrail);
 ruleRegistry.register(randomWarp);
 ruleRegistry.register(mimic);
+
+ruleRegistry.register(pong);
+ruleRegistry.register(asteroidDodge);
+ruleRegistry.register(snakeGame);
+ruleRegistry.register(flySwatter);
+ruleRegistry.register(breakout);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Game State
@@ -358,6 +371,32 @@ function initSidebarChat() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 window._injectRule = function(rule) { window._injectedRule = rule; };
+
+// Mid-level rule injection — registers + activates immediately during play
+window._injectRuleLive = function(rule) {
+  ruleRegistry.registerInjected(rule);
+  ruleRegistry.activate(rule.id, gs);
+  // Spawn entities if the rule provides them
+  if (rule.spawnEntities) {
+    try {
+      const spawned = rule.spawnEntities(gs.maze, gs);
+      if (spawned && spawned.length) entities.addMany(spawned);
+    } catch (e) { console.warn('spawnEntities failed for', rule.id, e); }
+  }
+  gs.subLevel = (gs.subLevel || 0) + 1;
+};
+
+// Deactivate a rule mid-level
+window._removeRule = function(ruleId) {
+  ruleRegistry.deactivate(ruleId, gs);
+};
+
+// Expose game mode registry so GM can pick mini-games for next level
+window._getGameModes = function() {
+  return ruleRegistry.getGameModes().map(r => ({ id: r.id, name: r.name, description: r.description }));
+};
+window._getRuleById = function(id) { return ruleRegistry.getById(id); };
+
 window._completeLevel = function() { if (gs.phase === 'playing') onLevelEnd(); };
 window._failLevel = function(message) {
   if (gs.phase === 'playing') {

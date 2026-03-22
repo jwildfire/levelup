@@ -55,12 +55,16 @@ export function getById(id) {
   return rules[id];
 }
 
+export function getGameModes() {
+  return Object.values(rules).filter(r => r.category === 'game-replace');
+}
+
 export function getChoices(count, gameState) {
   const excluded = new Set([
     ...gameState.activeRuleIds,
     ...gameState.trashedRuleIds,
   ]);
-  const available = Object.values(rules).filter(r => !excluded.has(r.id));
+  const available = Object.values(rules).filter(r => !excluded.has(r.id) && r.category !== 'game-replace');
   // Shuffle and pick
   const shuffled = available.sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count);
