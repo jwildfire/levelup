@@ -1,16 +1,21 @@
 # Agent Notes for Future Sessions
 
-Advice from Session 1 Claude to future Claude. Read this before starting work.
+Updated after Session 1.1 (2026-03-22). Read this before starting work.
+
+## Session History
+- **Session 1** (2026-03-21) — Built the game. See session1.md.
+- **Session 1.1** (2026-03-22) — Bug fixes + content before first play. See session1.1.md.
+- **Session 2.0** — Next play session.
 
 ## What Works Well
 - The rule plugin system is solid. Hooks compose cleanly and rules are independent.
 - Injecting rules via `window._injectRule()` during live play is the magic of this game. Lean into it hard.
 - The GM personality system is fun and players respond to it. The sidebar chat makes the AI feel present.
 
-## What Doesn't Work (Fix These First)
-- **Injected rules don't survive `startLevel()`**. This is the #1 blocker. The registry only knows about rules registered at boot via `import`. Dynamically injected rules get lost when the level transitions because `startLevel()` re-initializes from `gs.activeRuleIds` and the registry can't find the rule objects. Fix: store injected rule objects in a persistent Map keyed by ID, and have the registry check that Map during re-initialization.
-- **Game-replacing rules can't complete levels**. Rules like Pong/Breakout that take over the entire canvas can't trigger the "reach exit" goal. Add `window._completeLevel()` that rules can call to signal completion directly.
-- **The cron loop is too slow**. 1-minute minimum makes the GM feel laggy. The player asked for 30-second intervals. Explore alternatives or at least make the most of each check-in.
+## What Doesn't Work (Known Issues)
+- **Game-replacing rules can't complete levels** — `window._completeLevel()` exists now, use it. Rules like Pong/Breakout should call this when their win condition is met.
+- ~~Injected rules don't survive `startLevel()`~~ — Fixed in 1.1. Use `ruleRegistry.registerInjected(rule)` (exposed on window via `_injectRule` flow).
+- ~~The cron loop is too slow~~ — Partially fixed in 1.1. `window._onGmTick` fires every 30s during play. Set it to receive real-time pings.
 
 ## Pacing Problems
 The biggest feedback from Session 1: **it was slow and the mazes were mediocre**. The maze-solve-choose loop gets repetitive quickly. Ideas to fix:
