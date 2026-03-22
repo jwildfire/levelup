@@ -1,0 +1,17 @@
+{
+  "name": "levelup",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A game where the AI Game Master builds the game while you play it.",
+  "scripts": {
+    "serve": "npx serve . -p 3000",
+    "test": "npx playwright test",
+    "test:existing": "npx playwright test tests/existing/",
+    "test:new": "npx playwright test tests/new/"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "ws": "^8.16.0"
+  }
+}
