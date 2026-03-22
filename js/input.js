@@ -36,3 +36,13 @@ export function getDirection() {
   if (justPressed['ArrowRight'] || justPressed['d'] || justPressed['D']) return 'right';
   return null;
 }
+
+// Returns all currently held movement directions (for smooth free movement)
+export function getHeld() {
+  const dirs = [];
+  if (keys['ArrowUp'] || keys['w'] || keys['W']) dirs.push('up');
+  if (keys['ArrowDown'] || keys['s'] || keys['S']) dirs.push('down');
+  if (keys['ArrowLeft'] || keys['a'] || keys['A']) dirs.push('left');
+  if (keys['ArrowRight'] || keys['d'] || keys['D']) dirs.push('right');
+  return dirs;
+}

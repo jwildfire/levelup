@@ -8,6 +8,13 @@ export function resize(cellSize, cols, rows) {
   return { width: canvas.width, height: canvas.height, hudHeight };
 }
 
+export function resizeOpen(width, height) {
+  const hudHeight = 40;
+  canvas.width = width;
+  canvas.height = height + hudHeight;
+  return { width: canvas.width, height: canvas.height, hudHeight };
+}
+
 export function clear() {
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, canvas.width, canvas.height);

@@ -3,20 +3,20 @@ const overlay = document.getElementById('overlay');
 // Mystery hints - vague, cryptic clues by category
 const mysteryHints = {
   hazard: [
-    'Something dangerous lurks in the maze...',
-    'Not everything in the maze is friendly...',
+    'Something dangerous is coming...',
+    'Not everything here is friendly.',
     'Watch your step. Seriously.',
-    'The maze has teeth now.',
+    'The world has teeth now.',
   ],
   modifier: [
     'The rules of reality shift...',
-    'Nothing stays the same for long...',
+    'Nothing stays the same for long.',
     'What was true may not remain so.',
-    'The maze has a mind of its own.',
+    'The universe has a mind of its own.',
   ],
   collectible: [
     'There are new things to find...',
-    'The maze is full of treasures... or are they traps?',
+    'Something valuable is waiting for you.',
     'Something shiny catches your eye.',
     'Finders keepers.',
   ],
@@ -309,6 +309,21 @@ export function showGenerating(prompt, gameMaster) {
       (Generating rule with AI... this may take a moment)
     </div>
   `);
+}
+
+export function showNextLevelReady(onContinue) {
+  show(`
+    <div class="overlay-title">Next Level Ready</div>
+    <div class="overlay-subtitle" style="color: #aa88ff;">The Game Master has prepared something...</div>
+    <div class="overlay-text" style="margin-top: 1.5rem; color: #00ff88;">Press ENTER to begin</div>
+  `);
+  function onKey(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      window.removeEventListener('keydown', onKey);
+      onContinue();
+    }
+  }
+  window.addEventListener('keydown', onKey);
 }
 
 export function showGenerateError(message, onRetry, onFallback) {

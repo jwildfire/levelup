@@ -4,7 +4,10 @@ const GM_INTERVAL = 30; // seconds between GM check-ins
 
 export function render(ctx, gameState) {
   const cs = gameState.cellSize;
-  const w = gameState.maze.cols * cs;
+  // Width: open world uses world.width directly; maze world uses cols * cellSize
+  const w = gameState.worldType === 'open'
+    ? gameState.world.width
+    : gameState.maze.cols * cs;
 
   // Background bar
   ctx.fillStyle = '#0d0d0d';
@@ -23,13 +26,23 @@ export function render(ctx, gameState) {
   ctx.textBaseline = 'middle';
   ctx.fillText(`LVL ${gameState.level}`, 8, 20);
 
-  // Active rules - show as mystery count, not names
+  // World type badge
+  if (gameState.worldType === 'open') {
+    ctx.fillStyle = '#2a2a5a';
+    ctx.fillRect(60, 12, 38, 16);
+    ctx.fillStyle = '#6666ff';
+    ctx.font = '9px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('OPEN', 79, 20);
+  }
+
+  // Active rules count
   const activeRules = rules.getActive();
   if (activeRules.length > 0) {
     ctx.fillStyle = '#555';
     ctx.font = '10px "Courier New", monospace';
     ctx.textAlign = 'left';
-    ctx.fillText(`${activeRules.length} rule${activeRules.length > 1 ? 's' : ''} active`, 70, 20);
+    ctx.fillText(`${activeRules.length} rule${activeRules.length > 1 ? 's' : ''} active`, 108, 20);
   }
 
   // Move count
@@ -48,22 +61,18 @@ export function render(ctx, gameState) {
     const barY = 30;
     const progress = 1 - (remaining / GM_INTERVAL);
 
-    // Bar background
     ctx.fillStyle = '#222';
     ctx.fillRect(barX, barY, barWidth, 4);
-    // Bar fill - goes from green to red as it gets close
     const r = Math.floor(255 * progress);
     const g = Math.floor(255 * (1 - progress));
     ctx.fillStyle = `rgb(${r}, ${g}, 50)`;
     ctx.fillRect(barX, barY, barWidth * progress, 4);
 
-    // Label
     ctx.fillStyle = '#444';
     ctx.font = '9px "Courier New", monospace';
     ctx.textAlign = 'center';
     ctx.fillText(`GM: ${secs}s`, w / 2, 26);
 
-    // ESC hint
     ctx.fillStyle = '#333';
     ctx.textAlign = 'right';
     ctx.fillText('ESC: skip', w - 8, 26);
