@@ -5,7 +5,29 @@ Updated after Session 2.0 prep (2026-03-22). Read this before starting work.
 ## Session History
 - **Session 1** (2026-03-21) — Built the game. See session1.md.
 - **Session 1.1** (2026-03-22) — Open world engine, new flow design, timer-based levels. See session1.1.md.
-- **Session 2.0** — Next play session. The agentic GM loop is the focus.
+- **Session 2.0 prep** (2026-03-22) — Built GM bridge + Playwright orchestrator, test infrastructure, requirements.md.
+- **Session 2.0** — Next play session. The agentic GM loop is ready to use.
+
+---
+
+## Development Process (FOLLOW THIS)
+
+All work on this project must follow this pattern:
+
+1. **Update `requirements.md`** — Add or modify requirements before writing code
+2. **Write tests** — Write failing tests (RED) for the new requirements
+3. **Write code** — Implement until tests pass (GREEN)
+4. **Run full suite** — `npm test` must pass (74+ tests, all green)
+
+Tests live in `tests/existing/` (R1-R8) and `tests/new/` (R9-R11). Use Playwright.
+
+```bash
+npm test                    # all tests
+npm run test:existing       # game functionality only
+npm run test:new            # bridge + playwright only
+```
+
+**Environment note**: Playwright needs `PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright` set for browser detection.
 
 ---
 
@@ -32,25 +54,67 @@ Level 1 is a quick, known warm-up: open world, chase dots, 1 minute. It exists s
 
 ---
 
+## Architecture: Bridge + Playwright
+
+The GM loop runs through two channels:
+
+### WebSocket Bridge (real-time chat)
+- **Server**: `tools/bridge.js` — starts on configurable port (default 8765)
+- **Browser client**: `js/gm-bridge.js` — auto-connects, reads `?bridge_port=` URL param
+- **Events browser → AI**: `player-chat`, `phase-change`, `dot-reached`
+- **Commands AI → browser**: `gm-chat`, `inject-rule`, `set-next-level`
+- Auto-reconnects on connection drop
+
+### Playwright Session (game state + code injection)
+- **Orchestrator**: `tools/gm-session.js` — `GmSession` class
+- Launches Chromium, navigates to game
+- `getGameState()` — serializable snapshot
+- `evaluate(expr)` — run JS in browser context
+- `sendChat(msg, sender)` — direct chat injection
+- `injectNextLevel(spec)` — set `_nextLevel`
+- `injectRuleLive(ruleObj)` — inject rule with code strings (`initCode`, `onTickCode`, etc.)
+- `waitForEvent(type)` — await bridge events
+- `sendChatViaBridge(msg, sender)` — send via WS relay
+
+### Serializing Rule Code Across Boundaries
+
+Functions can't cross the process boundary. When sending rules via bridge or Playwright:
+
+```js
+// Send rule with code as strings:
+{
+  id: 'custom-rule',
+  name: 'Custom',
+  category: 'modifier',
+  initCode: 'function(gs) { gs.ruleData.custom = true; }',
+  onTickCode: 'function(dt, gs) { /* ... */ }',
+  onRenderCode: 'function(ctx, gs) { /* ... */ }',
+}
+// Bridge client and GmSession both deserialize *Code → hook functions automatically.
+```
+
+---
+
 ## The Core GM Loop
 
-This is the agentic loop that makes the game work:
-
 ```
-1. Player picks a GM personality
-2. Level 1 starts (60s timer, open world, dots)
-3. GM observes: player movement, speed, chat messages, wishes
-4. GM CREATES Level 2 during Level 1 — sets window._nextLevel with:
-   - Custom world geometry (open, maze, or entirely custom)
-   - New rules invented for this session (full rule objects, not just IDs)
-   - Narrative framing that connects to what happened in Level 1
-5. Level 1 timer fires → between-levels chat
-6. Player can chat, make a wish, react
-7. Level 2 loads instantly (GM already built it)
-8. Repeat: GM builds Level 3 during Level 2, escalating
+1. Claude Code starts GmSession with bridge
+2. Player picks a GM personality
+3. Level 1 starts (60s timer, open world, dots)
+4. Claude Code observes via:
+   - Bridge events (player-chat, phase-change, dot-reached)
+   - Playwright state polling (getGameState())
+5. Claude Code CREATES Level 2:
+   - Designs rules as code strings
+   - Sets _nextLevel via session.injectNextLevel(spec)
+   - Sends narrative chat via bridge or Playwright
+6. Level 1 timer fires → between-levels chat
+7. Player chats, makes wish → bridge relays to Claude Code
+8. Level 2 loads instantly (already built)
+9. Repeat: build Level 3 during Level 2
 ```
 
-**Critical: the GM must be CREATING during Level 1, not waiting.** The 60-second window is when the GM designs Level 2. By the time the player finishes Level 1, `_nextLevel` should already be set with something genuinely new.
+**Critical: Claude Code must be CREATING during Level 1, not waiting.** The 60-second window is when Level 2 gets designed.
 
 ---
 
@@ -183,48 +247,6 @@ Default schedule:
 - 1:00 — Timer fires, between-levels chat
 
 GM should override the default schedule with `_clearEvents` + `_addEvent` if it has a better plan.
-
----
-
-## Level 2+ Design (the creative part)
-
-This is where the GM earns its keep. When `_onLevelStart` fires for Level 1, the GM should immediately start designing Level 2.
-
-**Pattern:**
-```js
-window._onLevelStart = function({ level, spec, gameState }) {
-  if (level === 1) {
-    // Clear default injections, set our own
-    window._clearEvents();
-    window._addEvent({ type: 'time', ms: 30000 }, (gs) => {
-      // inject something fun at 30s
-    });
-
-    // START BUILDING LEVEL 2 NOW
-    window._nextLevel = {
-      world: 'open',
-      width: 640,
-      height: 380,
-      playerPos: { x: 320, y: 50 },
-      goalPos: { x: 320, y: 330 },
-      playerSpeed: 120,
-      injectRules: [
-        // Full rule objects with custom logic — NOT just activating existing rules
-        {
-          id: 'custom-session-game',
-          name: 'Something New',
-          description: 'A game that only exists in this session.',
-          category: 'game-replace',
-          difficulty: 3,
-          init(gs) { /* ... */ },
-          onTick(dt, gs) { /* ... */ },
-          onRender(ctx, gs) { /* ... */ },
-        }
-      ]
-    };
-  }
-};
-```
 
 ---
 

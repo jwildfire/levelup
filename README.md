@@ -22,6 +22,30 @@ Pick a GM → Play Level 1 (60s warm-up) → GM builds Level 2 while you play
 
 **Level 2+** is where it gets weird. The GM uses `_nextLevel` to pre-build a level during play — custom geometry, injected rules, maybe an entirely different game engine. By the time Level 1's timer fires, Level 2 is already waiting. No picking from a menu. The GM decided.
 
+## Architecture: Bridge + Playwright
+
+The GM loop runs through two channels:
+
+**WebSocket Bridge** (`tools/bridge.js` + `js/gm-bridge.js`) — Real-time chat relay:
+- Player chat messages → AI (instant)
+- AI chat responses → browser (instant)
+- Game phase changes, dot events → AI as notifications
+
+**Playwright Session** (`tools/gm-session.js`) — Heavy lifting:
+- Reads full game state via `page.evaluate()`
+- Injects rule objects and `_nextLevel` specs into the running game
+- Launches browser, navigates to game
+
+```
+Claude Code starts a play session
+  ├── Launches WS bridge + Playwright browser
+  ├── Player picks GM → bridge event → AI knows personality
+  ├── Level 1 starts → AI observes via state polling + bridge events
+  │   ├── Player chats → bridge → AI responds → bridge → browser
+  │   └── AI designs Level 2 → injects via Playwright
+  └── Level 1 ends → Level 2 loads instantly → repeat
+```
+
 ## Game Masters
 
 | | Name | Style |
@@ -41,19 +65,33 @@ Rules are composable plugins that hook into the game loop. They range from simpl
 
 **5 game-replacing minigames** in `js/rules/library/` — Pong, Breakout, Snake, Asteroid Dodge, Fly Swatter.
 
-But the real power is that the GM can create *new* rules at runtime — full rule objects with custom `onTick`, `onRender`, and `onInput` hooks, injected live via `_injectRule()`. The library exists as a starting point and inspiration, not as the menu.
+But the real power is that the GM can create *new* rules at runtime — full rule objects with custom `onTick`, `onRender`, and `onInput` hooks, injected live. The library exists as building blocks and inspiration, not as the menu.
 
 ## Running It
 
-```
-npx serve .
+```bash
+npm install          # first time only
+npx serve .          # start game server
+npm test             # run all 74 tests
 ```
 
 Arrow keys / WASD to move. The GM handles the rest.
 
+## Testing
+
+74 Playwright tests covering all requirements (see `requirements.md`):
+
+```bash
+npm test                    # all tests
+npm run test:existing       # R1-R8: existing game functionality (49 tests)
+npm run test:new            # R9-R11: bridge + playwright GM loop (25 tests)
+```
+
 ## Tech Stack
 
-Vanilla HTML5 Canvas + ES Modules. No build step, no framework, no dependencies.
+- Vanilla HTML5 Canvas + ES Modules (game)
+- Node.js + `ws` (WebSocket bridge)
+- Playwright (browser automation + testing)
 
 ## Project Structure
 
@@ -62,6 +100,7 @@ index.html              Entry point (canvas + sidebar chat)
 css/style.css           Styling
 js/
   main.js               Game loop, GM API, level management
+  gm-bridge.js          Browser-side WebSocket bridge client
   canvas.js             Canvas utilities
   input.js              Keyboard input (discrete + held-key)
   maze.js               Procedural maze generation
@@ -81,9 +120,15 @@ js/
     registry.js         Goal lifecycle
     pool/               Goal modules (reach-exit, reach-dot)
 tools/
+  bridge.js             WebSocket bridge server
+  gm-session.js         Playwright GM session orchestrator
   RULE_PROMPT.md        AI rule generation template
+tests/
+  existing/             R1-R8 tests (game functionality)
+  new/                  R9-R11 tests (bridge + playwright)
 specs/
   engine-v2.md          Engine v2 architecture spec
+requirements.md         All requirements with test coverage
 ```
 
 ## License
