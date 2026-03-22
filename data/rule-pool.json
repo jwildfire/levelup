@@ -1,0 +1,50 @@
+[
+  {
+    "id": "fire-hazard",
+    "name": "Avoid the Fire",
+    "description": "Fire spawns in random cells. Touching fire sends you back to start.",
+    "category": "hazard",
+    "difficulty": 2,
+    "file": "js/rules/pool/fire-hazard.js"
+  },
+  {
+    "id": "collect-coins",
+    "name": "Coin Collector",
+    "description": "Collect all coins scattered through the maze before you can exit.",
+    "category": "collectible",
+    "difficulty": 1,
+    "file": "js/rules/pool/collect-coins.js"
+  },
+  {
+    "id": "shifting-walls",
+    "name": "Shifting Walls",
+    "description": "Some walls open and close every few seconds. Watch the timing!",
+    "category": "modifier",
+    "difficulty": 3,
+    "file": "js/rules/pool/shifting-walls.js"
+  },
+  {
+    "id": "inverted-controls",
+    "name": "Mirror World",
+    "description": "All movement controls are reversed. Left is right, up is down!",
+    "category": "movement",
+    "difficulty": 2,
+    "file": "js/rules/pool/inverted-controls.js"
+  },
+  {
+    "id": "time-limit",
+    "name": "Race the Clock",
+    "description": "You have limited time to complete the level. Hurry!",
+    "category": "modifier",
+    "difficulty": 2,
+    "file": "js/rules/pool/time-limit.js"
+  },
+  {
+    "id": "fog-of-war",
+    "name": "Fog of War",
+    "description": "You can only see a small area around you. The rest is shrouded in darkness.",
+    "category": "visual",
+    "difficulty": 3,
+    "file": "js/rules/pool/fog-of-war.js"
+  }
+]

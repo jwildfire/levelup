@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Level Up</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app-container">
+    <div id="game-container">
+      <canvas id="game-canvas"></canvas>
+      <div id="overlay" class="hidden"></div>
+    </div>
+    <div id="sidebar-chat">
+      <div id="sidebar-header">
+        <span id="sidebar-gm-name">Game Master</span>
+      </div>
+      <div id="sidebar-messages"></div>
+      <div id="sidebar-input-row">
+        <input type="text" id="sidebar-input" placeholder="Talk to the Game Master..." autocomplete="off" />
+        <button id="sidebar-send">Send</button>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
