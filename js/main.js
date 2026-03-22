@@ -209,6 +209,27 @@ window._injectRule = function(rule) {
   window._injectedRule = rule;
 };
 
+// Level completion API — rules can call these directly
+window._completeLevel = function() {
+  if (gs.phase === 'playing') {
+    onLevelComplete();
+  }
+};
+
+window._failLevel = function(message) {
+  if (gs.phase === 'playing') {
+    gs.phase = 'playing'; // keep phase for retry
+    // Show failure in sidebar
+    window._systemMsg(message || 'Level failed!');
+    // Reset to start of current level
+    startLevel();
+  }
+};
+
+window._setGoal = function(description) {
+  gs.currentGoalText = description;
+};
+
 // Sidebar chat system
 function addSidebarMsg(message, sender, type = 'gm') {
   const container = document.getElementById('sidebar-messages');
