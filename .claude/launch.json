@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Level Up",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", ".", "-p", "3000", "-L"],
+      "port": 3000
+    }
+  ]
+}
