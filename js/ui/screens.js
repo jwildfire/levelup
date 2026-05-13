@@ -28,6 +28,9 @@ const gameMasters = [
     color: '#aa88ff',
     welcome: "Ah. A visitor. I sense a wish forming. Speak carefully — I have a talent for granting exactly what you ask for, and nothing more.",
     followUp: ["I see. I'll grant that. In my own way.", "Interesting choice of words. I'll remember that.", "Noted. The paw curls."],
+    worldTheme: 'cursed bazaar where every deal has a hidden cost',
+    escalationStyle: 'Each level twists a previous wish into a new hazard',
+    levelOneNarrative: 'A simple errand in the bazaar. Collect the glowing orbs. Nothing sinister about that... yet.',
   },
   {
     id: 'chaotic-fairy',
@@ -38,6 +41,9 @@ const gameMasters = [
     color: '#ff88dd',
     welcome: "OH MY GOSH YOU'RE HERE!! I've been waiting SO LONG!! I'm ready!! Are you ready?! Tell me what you want and I'll make it happen!! (probably!!)",
     followUp: ["YES! PERFECT! Let's GO!", "Oooh I love it!! I'll add some extra glitter too!", "Amazing!! Bibbidi-bobbidi-LET'S DO THIS!!"],
+    worldTheme: 'enchanted theme park that keeps glitching and rebuilding itself',
+    escalationStyle: 'Each level adds sparkly chaos — things multiply, shrink, or explode',
+    levelOneNarrative: 'Welcome to Fairy World!! Grab the sparkly dots!! Everything is fine!! Totally under control!!',
   },
   {
     id: 'passive-aggressive',
@@ -48,6 +54,9 @@ const gameMasters = [
     color: '#88ccff',
     welcome: "Oh. You're here. That's... great. I prepared everything. Not that you asked. What do you want. I'll do it. It's fine.",
     followUp: ["Sure. I'll incorporate that. Somehow.", "Per your request. Not my first choice but okay.", "Great. Very helpful. I'll figure it out."],
+    worldTheme: 'corporate office simulation that keeps adding unnecessary features',
+    escalationStyle: 'Each level adds a "helpful" feature nobody asked for',
+    levelOneNarrative: 'Here is your workspace. Collect the deliverables. I set it up for you. You are welcome.',
   },
   {
     id: 'evil-dm',
@@ -58,6 +67,9 @@ const gameMasters = [
     color: '#ff4444',
     welcome: "Adventurer. You dare enter my domain? Many have tried. None have survived. Tell me — what foolish wish brings you to this place of certain doom?",
     followUp: ["Your fate is sealed. The dungeon awaits.", "So be it. I have prepared... appropriately.", "Brave words. Foolish, but brave."],
+    worldTheme: 'ever-descending dungeon with increasingly deadly traps',
+    escalationStyle: 'Each level descends deeper — enemies get smarter, traps get deadlier',
+    levelOneNarrative: 'You stand at the entrance to the dungeon. Collect the soul fragments before the darkness claims you.',
   },
   {
     id: 'game-show-host',
@@ -68,6 +80,9 @@ const gameMasters = [
     color: '#ffdd00',
     welcome: "WELCOME CONTESTANT!! Are you ready for the GREATEST GAME OF YOUR LIFE?! What's your strategy?! What do you WANT?! Tell me EVERYTHING!!",
     followUp: ["FANTASTIC! The audience goes WILD!", "YES!! THAT'S WHAT WE LIKE TO HEAR!!", "INCREDIBLE!! SPIN THE WHEEL!!"],
+    worldTheme: 'fever-dream game show studio that keeps changing sets',
+    escalationStyle: 'Each level is a new round — bonus rounds, double-or-nothing, mystery boxes',
+    levelOneNarrative: 'ROUND ONE!! Grab the PRIZE DOTS before time runs out!! The audience is GOING WILD!!',
   },
   {
     id: 'game-dev',
@@ -78,6 +93,9 @@ const gameMasters = [
     color: '#44ff88',
     welcome: "Hey. Welcome. Tell me what kind of game you want and I'll build it. Or just hit Start and I'll figure something out based on defaults.",
     followUp: ["Got it. Logging the request.", "Understood. I'll implement that.", "Makes sense. I'll spec it out."],
+    worldTheme: 'sandbox prototype that evolves based on player feedback',
+    escalationStyle: 'Each level builds on player requests — mechanics stack and combine',
+    levelOneNarrative: 'Basic prototype loaded. Move around, collect dots. Tell me what you want and I will build it.',
   },
 ];
 
@@ -289,6 +307,56 @@ export function showBetweenLevels(gs, gm, onWish, onNext) {
     d.innerHTML = `<span class="msg-sender">${sender}</span><span class="msg-text">${text}</span>`;
     log.appendChild(d);
     log.scrollTop = log.scrollHeight;
+  };
+
+  // DM question system — renders structured choices above the advance button
+  window._setDmQuestion = function(question, choices) {
+    // Remove any existing question area
+    const existing = document.getElementById('dm-question-area');
+    if (existing) existing.remove();
+
+    const area = document.createElement('div');
+    area.id = 'dm-question-area';
+    area.style.cssText = 'margin-top: 1rem; text-align: center;';
+
+    const qText = document.createElement('div');
+    qText.className = 'dm-question-text';
+    qText.style.cssText = 'color: #ddd; font-size: 0.95rem; margin-bottom: 0.6rem;';
+    qText.textContent = question;
+    area.appendChild(qText);
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;';
+
+    for (const choice of choices) {
+      const btn = document.createElement('button');
+      btn.className = 'dm-choice-btn';
+      btn.style.cssText = 'padding: 0.4rem 0.8rem; border: 1px solid #555; border-radius: 4px; background: #1a1a2e; color: #ddd; cursor: pointer; font-size: 0.85rem;';
+      btn.textContent = choice;
+      btn.addEventListener('click', () => {
+        if (window._gs) window._gs.lastPlayerChoice = choice;
+        if (typeof window._onPlayerChoice === 'function') {
+          window._onPlayerChoice(choice);
+        }
+        // Highlight selected, disable others
+        for (const b of btnRow.querySelectorAll('.dm-choice-btn')) {
+          b.style.opacity = b === btn ? '1' : '0.4';
+          b.disabled = true;
+        }
+        btn.style.borderColor = gm ? gm.color : '#00ff88';
+      });
+      btnRow.appendChild(btn);
+    }
+
+    area.appendChild(btnRow);
+
+    // Insert before the advance button
+    const nextBtn = document.getElementById('between-next');
+    if (nextBtn) {
+      nextBtn.parentNode.insertBefore(area, nextBtn);
+    } else {
+      overlay.appendChild(area);
+    }
   };
 }
 

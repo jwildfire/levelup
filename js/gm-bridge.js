@@ -93,6 +93,12 @@
           window._nextLevel = msg.spec;
         }
         break;
+
+      case 'dm-question':
+        if (typeof window._setDmQuestion === 'function' && msg.question && msg.choices) {
+          window._setDmQuestion(msg.question, msg.choices);
+        }
+        break;
     }
   }
 
@@ -140,6 +146,20 @@
     if (count > lastDotCount) {
       lastDotCount = count;
       send({ type: 'dot-reached', count });
+    }
+  }, 100);
+
+  // Watch for player choice (DM question response)
+  let lastPlayerChoice = null;
+  setInterval(() => {
+    const gs = window._gs;
+    if (!gs) return;
+    const choice = gs.lastPlayerChoice;
+    if (choice && choice !== lastPlayerChoice) {
+      lastPlayerChoice = choice;
+      send({ type: 'player-choice', choice });
+    } else if (!choice) {
+      lastPlayerChoice = null;
     }
   }, 100);
 

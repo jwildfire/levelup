@@ -109,7 +109,17 @@ test.describe('R9: WebSocket Bridge', () => {
       await page.waitForFunction(() => window._bridgeConnected === true, { timeout: 5000 });
       await page.waitForFunction(() => window._gs && window._gs.phase === 'menu', { timeout: 5000 });
 
-      const msgPromise = waitForMessage(aiWs, 'phase-change');
+      // Wait specifically for intro-chat phase (ignore initial menu phase-change)
+      const msgPromise = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Timeout waiting for intro-chat')), 5000);
+        aiWs.on('message', (data) => {
+          const msg = JSON.parse(data.toString());
+          if (msg.type === 'phase-change' && msg.phase === 'intro-chat') {
+            clearTimeout(timer);
+            resolve(msg);
+          }
+        });
+      });
       // Select GM → triggers phase change to intro-chat
       await page.evaluate(() => {
         document.getElementById('overlay').querySelectorAll('.gm-choice')[0].click();

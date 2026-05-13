@@ -120,6 +120,15 @@ function startLevel(spec) {
     goalRegistry.activate('reach-exit', gs);
   }
 
+  // Merge newMechanics from spec into knownMechanics
+  if (spec.newMechanics && Array.isArray(spec.newMechanics)) {
+    for (const m of spec.newMechanics) {
+      if (!gs.knownMechanics.includes(m)) {
+        gs.knownMechanics.push(m);
+      }
+    }
+  }
+
   entities.clear();
   gs.ruleData = {};
   gs.events = [];
@@ -240,6 +249,17 @@ window._setTimer = function(ms) {
 function onLevelEnd() {
   if (gs.phase !== 'playing') return;
   gs.phase = 'between-levels';
+
+  // Push level summary to session history
+  gs.sessionHistory.push({
+    level: gs.level,
+    dotsReached: gs.ruleData.dotsReached || 0,
+    moves: gs.player ? gs.player.moveCount : 0,
+    activeRuleIds: [...gs.activeRuleIds],
+    playerChoice: gs.lastPlayerChoice || null,
+    narrative: null,
+  });
+  gs.lastPlayerChoice = null;
 
   // Fire hook for GM to respond
   if (typeof window._onLevelEnd === 'function') {

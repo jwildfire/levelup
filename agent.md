@@ -1,12 +1,12 @@
 # Agent Notes for Future Sessions
 
-Updated after Session 2.0 prep (2026-03-22). Read this before starting work.
+Updated after D&D DM refactor (2026-05-13). Read this before starting work.
 
 ## Session History
 - **Session 1** (2026-03-21) — Built the game. See session1.md.
 - **Session 1.1** (2026-03-22) — Open world engine, new flow design, timer-based levels. See session1.1.md.
 - **Session 2.0 prep** (2026-03-22) — Built GM bridge + Playwright orchestrator, test infrastructure, requirements.md.
-- **Session 2.0** — Next play session. The agentic GM loop is ready to use.
+- **Session 2.1** (2026-05-13) — D&D Dungeon Master refactor: session history, progressive complexity, DM questions, GM personality metadata.
 
 ---
 
@@ -19,27 +19,27 @@ All work on this project must follow this pattern:
 3. **Write code** — Implement until tests pass (GREEN)
 4. **Run full suite** — `npm test` must pass (74+ tests, all green)
 
-Tests live in `tests/existing/` (R1-R8) and `tests/new/` (R9-R11). Use Playwright.
+Tests live in `tests/existing/` (R1-R8) and `tests/new/` (R9-R12). Use Playwright.
 
 ```bash
-npm test                    # all tests
-npm run test:existing       # game functionality only
-npm run test:new            # bridge + playwright only
+npm test                    # all 89 tests
+npm run test:existing       # R1-R8 game functionality (49 tests)
+npm run test:new            # R9-R12 bridge, playwright, D&D DM (40 tests)
 ```
 
-**Environment note**: Playwright needs `PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright` set for browser detection.
+**Environment note**: Playwright needs `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` set for browser detection.
 
 ---
 
 ## The Big Idea (Read This First)
 
-**Every playthrough after Level 1 should be completely unique.**
+**The LLM IS the Dungeon Master.** This is a D&D-style game where the DM builds the world while the player plays.
 
-Level 1 is a quick, known warm-up: open world, chase dots, 1 minute. It exists so the GM can observe the player and build something new.
-
-**Level 2 is the real game, and it should be one of:**
-1. A **brand new game** the GM invents on the spot — new mechanics, new rules, new goals, something that didn't exist before this session.
-2. A **significant remix** of the minigames/rules library — not just "play Pong now," but Pong with gravity wells and inverted controls and a narrative reason for it.
+**Core principles:**
+1. **Progressive complexity** — Each level adds ONE new mechanic. Level 1: move + collect. Level 2 might add dodge. Level 3 adds shoot. Tracked in `gs.knownMechanics`.
+2. **Player-driven narrative** — Between levels, the DM asks questions with clickable choices ("Which path?"). Player choices steer the next level's design. Stored in `gs.sessionHistory`.
+3. **Narrative continuity** — The DM references past levels, past choices, past performance. Each session is a story.
+4. **Different DMs, different worlds** — The Monkey's Paw runs a cursed bazaar; the Evil DM runs a dungeon; the Game Show Host runs a fever-dream show. Each has `worldTheme`, `escalationStyle`, `levelOneNarrative`.
 
 **The goal is NOT to:**
 - Switch between pre-made minigames unchanged
@@ -47,10 +47,10 @@ Level 1 is a quick, known warm-up: open world, chase dots, 1 minute. It exists s
 - Play the same level structure with different modifiers
 
 **The goal IS to:**
-- Have the GM act as a game designer in real-time
+- Have the DM act as a storyteller and game designer in real-time
 - Create something that feels hand-crafted for this specific session
+- Build on player choices so each level feels like a consequence of what came before
 - Use the rules library and engine primitives as building blocks, not finished products
-- Make the player feel like the game is being invented around them
 
 ---
 
@@ -92,6 +92,33 @@ Functions can't cross the process boundary. When sending rules via bridge or Pla
 }
 // Bridge client and GmSession both deserialize *Code → hook functions automatically.
 ```
+
+---
+
+## D&D DM Mode (R12)
+
+### Session History
+- `gs.sessionHistory` — Array of level summaries: `{ level, dotsReached, moves, activeRuleIds, playerChoice, narrative }`
+- Pushed automatically on each level end
+- Read via `GmSession.getSessionHistory()` or `getGameState().sessionHistory`
+
+### Progressive Complexity
+- `gs.knownMechanics` — Starts as `['move', 'collect']`
+- When `_nextLevel.newMechanics = ['dodge', 'shoot']` is set, those merge on level start
+- Read via `GmSession.getKnownMechanics()` or `getGameState().knownMechanics`
+- **Rule: each level should add at most ONE new mechanic** to avoid overwhelming the player
+
+### DM Questions (Between Levels)
+- `window._setDmQuestion(question, choices)` — Renders clickable choice buttons
+- Player click stores in `gs.lastPlayerChoice` and calls `window._onPlayerChoice(choice)`
+- Via bridge: AI sends `{ type: 'dm-question', question, choices }`, browser sends `{ type: 'player-choice', choice }`
+- Via GmSession: `session.setDmQuestion(question, choices)`
+
+### GM Personality Metadata
+Each GM personality now includes:
+- `worldTheme` — The world/setting for this DM's sessions
+- `escalationStyle` — How complexity ramps between levels
+- `levelOneNarrative` — Flavor text for narrating Level 1
 
 ---
 
@@ -169,6 +196,7 @@ window._nextLevel = {
   goalPos: { x: 560, y: 190 },
   playerSpeed: 180,
   injectRules: [ruleObj],  // rules to activate at level start — FULL OBJECTS, not IDs
+  newMechanics: ['dodge'],  // merged into gs.knownMechanics on level start
 };
 
 // ── Hooks ──────────────────────────────────────────────────────────────────
@@ -196,6 +224,19 @@ window._respondToPlayer = function(msg, callback) {
 
 // ── Between-levels screen ─────────────────────────────────────────────────
 window._addBetweenMsg('text', 'Sender');  // Add message to the between-levels chat
+
+// ── DM Questions (between levels) ────────────────────────────────────────
+window._setDmQuestion('Which path?', ['Forest', 'Caves', 'Bridge']);
+// Player clicks → gs.lastPlayerChoice = 'Forest', _onPlayerChoice('Forest')
+
+window._onPlayerChoice = function(choice) {
+  // Called when player clicks a DM choice button
+  // Use this to steer next level design
+};
+
+// ── Session History ──────────────────────────────────────────────────────
+// gs.sessionHistory — auto-populated array of level summaries
+// gs.knownMechanics — accumulates as newMechanics are added via _nextLevel
 
 // ── Inspection ────────────────────────────────────────────────────────────
 window._getGameModes();    // List available game-replacing minigames
@@ -255,8 +296,8 @@ GM should override the default schedule with `_clearEvents` + `_addEvent` if it 
 - **Open-world rules pool is thin**: Most pool rules are maze-specific. Need open-world-native rules or the GM needs to create them.
 - **`_respondToPlayer` not implemented**: Canned responses in intro chat. AI should hook this for real responses.
 - **Wish processing**: Player wishes in between-levels chat set `_pendingWish`. AI needs to watch this.
-- **No narrative history**: Chat log exists (`gs.chatLog`) but AI doesn't get it summarized.
 - **Engine primitives not fully wired**: `engine/primitives.js` and `engine/physics.js` exist but aren't integrated into the main game loop yet. Rules can use them directly.
+- **RULE_PROMPT.md needs D&D rewrite**: The rule generation prompt template needs updating for D&D context with progressive complexity, session history awareness, and narrative tone.
 
 ## Player Profile
 - Wants fast, surprising, chaotic gameplay
@@ -264,4 +305,5 @@ GM should override the default schedule with `_clearEvents` + `_addEvent` if it 
 - Loves mid-level surprises more than between-level reveals
 - Wants the GM to feel like it's paying attention to them specifically
 - Liked the two-way chat concept — GM should respond to player messages
+- Wants player choices to have visible consequences in the next level
 - **Most important**: wants to feel like the game was made just for them, not picked from a list

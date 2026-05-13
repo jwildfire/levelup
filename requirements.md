@@ -116,3 +116,34 @@ The full agentic loop combining bridge + playwright.
 - **R11.5** — AI can set `_nextLevel` via Playwright before Level 1 ends
 - **R11.6** — When level ends and `_nextLevel` is set, Level 2 loads the GM-built spec
 - **R11.7** — The loop repeats: AI builds Level N+1 during Level N
+
+## R12: D&D Dungeon Master Mode (NEW)
+
+The LLM is the dungeon master. The game starts simple and progressively adds complexity each level. The DM asks questions between levels, and player decisions steer the next level's design. Narrative continuity across levels via session history.
+
+### Session History & Progressive Complexity
+
+- **R12.1** — `gs.sessionHistory` is an array, empty at game start, tracking each completed level's summary
+- **R12.2** — `gs.knownMechanics` starts as `['move', 'collect']` and accumulates new mechanics each level
+- **R12.3** — Level end pushes a summary object to `sessionHistory` with `{ level, dotsReached, moves, activeRuleIds, playerChoice, narrative }`
+- **R12.4** — `_nextLevel.newMechanics` (string array) merges into `gs.knownMechanics` when the level starts
+
+### DM Questions (Between Levels)
+
+- **R12.5** — `window._setDmQuestion(question, choices)` renders a question with clickable choice buttons in the between-levels screen
+- **R12.6** — Clicking a DM choice stores the selection in `gs.lastPlayerChoice` and calls `window._onPlayerChoice(choice)` if set
+- **R12.7** — DM question area is cleared when advancing to the next level
+
+### GM Personality Metadata
+
+- **R12.8** — Each GM personality object includes `worldTheme` (string) and `escalationStyle` (string)
+- **R12.9** — Each GM personality object includes `levelOneNarrative` (string) — flavor text the DM uses to narrate Level 1
+
+### Bridge & GmSession Integration
+
+- **R12.10** — Bridge relays `{ type: 'dm-question', question, choices }` from AI → browser, calls `_setDmQuestion()`
+- **R12.11** — Bridge sends `{ type: 'player-choice', choice }` from browser → AI when player clicks a DM choice
+- **R12.12** — `getGameState()` includes `sessionHistory` and `knownMechanics` fields
+- **R12.13** — GmSession exposes `getSessionHistory()` returning `gs.sessionHistory`
+- **R12.14** — GmSession exposes `getKnownMechanics()` returning `gs.knownMechanics`
+- **R12.15** — GmSession exposes `setDmQuestion(question, choices)` that sends via bridge

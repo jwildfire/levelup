@@ -131,6 +131,8 @@ export class GmSession {
         worldHeight: gs.world?.height,
         hasMaze: !!gs.maze,
         gameMaster: gs.gameMaster ? { id: gs.gameMaster.id, name: gs.gameMaster.name } : null,
+        sessionHistory: gs.sessionHistory || [],
+        knownMechanics: [...(gs.knownMechanics || [])],
       };
     });
   }
@@ -204,6 +206,20 @@ export class GmSession {
       }
       window._injectRuleLive(rule);
     }, ruleObj);
+  }
+
+  async getSessionHistory() {
+    return this.page.evaluate(() => window._gs.sessionHistory || []);
+  }
+
+  async getKnownMechanics() {
+    return this.page.evaluate(() => [...(window._gs.knownMechanics || [])]);
+  }
+
+  setDmQuestion(question, choices) {
+    if (this.aiWs && this.aiWs.readyState === 1) {
+      this.aiWs.send(JSON.stringify({ type: 'dm-question', question, choices }));
+    }
   }
 
   async close() {

@@ -22,6 +22,11 @@ export function createGameState() {
     // Chat log — all messages during current session
     chatLog: [],
 
+    // D&D DM Mode — session history and progressive complexity
+    sessionHistory: [],
+    knownMechanics: ['move', 'collect'],
+    lastPlayerChoice: null,
+
     // Persistent
     savedRuleIds: saved.savedRuleIds,
     trashedRuleIds: saved.trashedRuleIds,
